@@ -8,15 +8,17 @@
  * Descriptions are written for the model as much as for people: they are
  * sent as question context, so keep them concrete and literal.
  *
- * Two ids are fixed by the library, because the model needs an explicit
- * no-match outcome for every choice: UNCLEAR_GOAL and NO_ACTION. Every
- * catalog has both.
+ * Some ids are fixed by the library, because the model needs an explicit
+ * no-match outcome for every choice: UNCLEAR_GOAL and NO_ACTION, which every
+ * catalog has, and PANEL_UNCLEAR, which no panel may use.
  */
 
 /** The goal id that means there is too little, or too mixed, activity to tell what the user is doing. */
 export const UNCLEAR_GOAL = "unclear";
 /** The action id that means there is no clear next step to suggest. */
 export const NO_ACTION = "none";
+/** The no-match option of the command panel question (no panel fits the command). No panel id may be this. */
+export const PANEL_UNCLEAR = "unclear";
 
 export interface PanelDef<P extends string = string> {
   id: P;
@@ -27,6 +29,12 @@ export interface PanelDef<P extends string = string> {
   icon: string;
   /** Shown on first load, before there is any activity to adapt to. */
   defaultVisible: boolean;
+  /**
+   * Example commands this panel answers, sent to the model with the command
+   * panel question. Set on every panel or on none, so the options compare
+   * directly.
+   */
+  commandExamples?: string[];
 }
 
 export interface GoalDef {
@@ -34,6 +42,13 @@ export interface GoalDef {
   label: string;
   /** What the goal means. Sent to the model. */
   description: string;
+  /**
+   * What the goal is not, for goals the model confuses with another, for
+   * example "Looking at revenue charts or totals for the year." for
+   * collecting payments. Sent to the model. Set on every goal or on none, so
+   * the options compare directly.
+   */
+  notFor?: string;
 }
 
 export interface ActionDef<P extends string = string, A extends string = string> {
@@ -89,6 +104,12 @@ function checkIds(kind: string, ids: readonly string[], defs: Readonly<Record<st
   for (const key of Object.keys(defs)) if (!seen.has(key)) problems.push(`${kind} definition "${key}" is not in the ${kind} id list`);
 }
 
+/** Problems with an optional field that must be set on every definition of a kind or on none. */
+function allOrNone<K extends string>(kind: string, field: string, ids: readonly K[], has: (id: K) => boolean, problems: string[]): void {
+  const missing = ids.filter((id) => !has(id));
+  if (missing.length > 0 && missing.length < ids.length) problems.push(`${field} is set on some ${kind}s but not on ${missing.map((id) => `"${id}"`).join(", ")}`);
+}
+
 /**
  * Checks a catalog and returns it, frozen at the top level. Throws a
  * CatalogError that lists every problem, so a mistake shows up when the app
@@ -97,9 +118,12 @@ function checkIds(kind: string, ids: readonly string[], defs: Readonly<Record<st
  *   - each panel and action definition carries its own id,
  *   - the goals include UNCLEAR_GOAL and the actions include NO_ACTION,
  *     whose panel is null,
+ *   - no panel uses the id PANEL_UNCLEAR,
  *   - an action's panel is a panel id,
  *   - every goal has an affinity entry, whose keys are panel ids and whose
- *     values are numbers from 0 to 1.
+ *     values are numbers from 0 to 1,
+ *   - commandExamples is set on every panel or on none, and notFor on every
+ *     goal or on none.
  */
 export function defineCatalog<P extends string, G extends string, A extends string>(catalog: Catalog<P, G, A>): Catalog<P, G, A> {
   const problems: string[] = [];
@@ -109,10 +133,13 @@ export function defineCatalog<P extends string, G extends string, A extends stri
   checkIds("action", catalog.actionIds, catalog.actions, problems);
 
   const panelIds = new Set<string>(catalog.panelIds);
+  if (panelIds.has(PANEL_UNCLEAR)) problems.push(`no panel may have the id "${PANEL_UNCLEAR}", the command panel question's no-match option`);
   for (const id of catalog.panelIds) {
     const def = catalog.panels[id];
     if (def && def.id !== id) problems.push(`panel "${id}" has id "${def.id}" in its definition`);
   }
+  allOrNone("panel", "commandExamples", catalog.panelIds, (id) => catalog.panels[id]?.commandExamples !== undefined, problems);
+  allOrNone("goal", "notFor", catalog.goalIds, (id) => catalog.goals[id]?.notFor !== undefined, problems);
   if (!catalog.goalIds.includes(UNCLEAR_GOAL as G)) problems.push(`the goals must include "${UNCLEAR_GOAL}", the no-match outcome`);
   if (!catalog.actionIds.includes(NO_ACTION as A)) problems.push(`the actions must include "${NO_ACTION}", the no-match outcome`);
   for (const id of catalog.actionIds) {

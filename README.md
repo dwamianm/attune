@@ -17,6 +17,8 @@ packages/
                             the row fit, plain-word helpers. No DOM, no React, no network.
   react/    @attune/react   React bindings. Today: generic hooks (keyboard, sizes,
                             roving lists, popovers).
+  jev/      @attune/jev     The Jev question layer: the core questions built from the
+                            catalog, and readers that turn answers into typed judgments.
   server/   @attune/server  For the server that holds the model key: request guard
                             (loopback or CDN edge) and a rate limiter.
 apps/
@@ -93,9 +95,12 @@ and run `pnpm test` or `pnpm typecheck`.
 
 These are the choices made when the prototype became a monorepo, and why.
 
-- **Three packages, not one.** `core` must run anywhere, `react` needs
-  React, and `server` needs Node (`node:crypto`). Separate packages make
-  those limits real dependencies instead of a rule in a comment.
+- **Four packages, not one.** `core` must run anywhere, `react` needs
+  React, `server` needs Node (`node:crypto`), and `jev` needs the TypeSafe
+  SDK. Separate packages make those limits real dependencies instead of a
+  rule in a comment, and an app that does not use Jev never installs the
+  SDK. The SDK is a peer dependency of `jev`, because the app owns the
+  client that sends the request.
 - **Source exports, not a build.** Nothing is published yet, so a build
   step would only slow down work on the library. Before the first publish,
   each package needs a build that emits JavaScript and `.d.ts` files (see

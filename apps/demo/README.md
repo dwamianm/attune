@@ -126,8 +126,8 @@ up the client's records next to the meeting.
 UI signals            clicks, searches, filters, pointer rests, shortcuts, commands
   -> event log        src/engine/store.ts (track)
   -> snapshot         src/engine/snapshot.ts: recent activity and behavior facts, in words
-  -> one Jev request  server/questions.ts: small state, 16 questions, plus 2 with record candidates, 1 with the working goal, 1 with task candidates, 2 with a clicked record, and 5 with a command
-  -> judgments        server/normalize.ts: typed Choice, Score, and Noul answers
+  -> one Jev request  server/questions.ts (core questions from @attune/jev): small state, 16 questions, plus 2 with record candidates, 1 with the working goal, 1 with task candidates, 2 with a clicked record, and 5 with a command
+  -> judgments        server/normalize.ts (core readers from @attune/jev): typed Choice, Score, and Noul answers
   -> policy           src/engine/policy.ts: weights, thresholds, hysteresis
   -> layout plan      mode, ordered placements with sizes, dock, suggestions, help
   -> place step       @attune/core packGrid: explicit grid cells, the clicked panel held still
@@ -220,10 +220,15 @@ click on a message, an invoice, a task, a project, or an event, with
 "Arrange linked panels by next step" on (`AdaptRequest.link`: the clicked
 record in words and its linked records); the clicked record lives in their
 instructions, never in the state.
-Question wording lives in `server/questions.ts`. It was tuned against live Jev; the
-header comments there explain the choices (for example, why the newest activity
-has its own field and why relevance asks about "what the user is working on"
-rather than "the task").
+The core questions (`goal`, `rel_<panel>`, `struggling`, `layout`,
+`expertise`, `next_action`, `cmd_panel`, and `cmd_action`) and the state are
+built by `@attune/jev` (`packages/jev/src/questions.ts`) from the demo's
+catalog; each goal's `notFor` and each panel's `commandExamples` live in
+`shared/catalog.ts`. The demo's own questions are in `server/questions.ts`.
+The wording was tuned against live Jev; the comments in both files explain
+the choices (for example, why the newest activity has its own field and why
+relevance asks about "what the user is working on" rather than "the
+task").
 
 Meeting prep (focus aid 4) asks in its own request, POST /api/prep, behind
 the same guard, validation, budget, and fallback, because its state is
@@ -876,10 +881,11 @@ docs/         Design notes: anchored relayout, focus aids, predictive flow
 ```
 
 From the library (`packages/`): the catalog check (`CATALOG` in
-`shared/catalog.ts` goes through `defineCatalog`), the layout modes, the grid
-packer, the request scheduler, recent use, the quiet rule, the relayout
-timing, the row fit under the command bar, and the plain-word helpers
-(`@attune/core`). The demo's `src/engine/usage.ts`, `src/engine/quiet.ts`,
+`shared/catalog.ts` goes through `defineCatalog`), the layout modes, the
+judgment and snapshot types, the grid packer, the request scheduler, recent
+use, the quiet rule, the relayout timing, the row fit under the command bar,
+and the plain-word helpers (`@attune/core`); the core Jev questions and the
+answer readers (`@attune/jev`). The demo's `src/engine/usage.ts`, `src/engine/quiet.ts`,
 and `src/ui/choreography.ts` bind them to its catalog and events; the generic React hooks
 (`@attune/react`); the request guard and rate limiter (`@attune/server`).
 

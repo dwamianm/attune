@@ -2,45 +2,40 @@
  * The Jev request: one small, words-only state and every question the
  * client policy might need, all sent together so they run in parallel.
  *
- * Pure (no I/O) so tests and the eval script can inspect exactly what is
- * sent. Design notes, from the TypeSafe docs (state, primitives, fan-out,
- * jev-1.13 jaggedness):
- *   - Question ids are never sent to the model, so every instruction carries
- *     its full meaning and points at state fields by backticked name.
- *   - The newest activity gets its own field instead of being "the last item
- *     of a list": Jev reads literally and positional indirection costs accuracy.
- *     Splitting (rather than copying) it avoids showing one search twice,
- *     which would look like a repeated search to the struggling question.
- *   - Per-panel relevance is one Score per panel with identical wording and
- *     levels, so the scores are comparable and code can rank them.
- *   - Every Choice has an explicit no-match option, and values such as client
- *     names are selected from candidates, never generated.
- *   - Command questions are speculative fan-out: they ride along in the same
- *     request and the client ignores the ones that do not apply.
- *   - Next-record questions ride along the same way when the client sends
- *     record candidates. The candidates live in the Choice criteria, never in
- *     the state, so the state stays the same for every other question.
+ * The core questions (goal, relevance per panel, struggling, layout,
+ * expertise, next action, and the command panel and action) and the core
+ * state come from @attune/jev, built from the demo's catalog. This file adds
+ * the demo's own: the client questions, the next record and list work, the
+ * goal-done and next-task questions (focus aid 2), the link questions, the
+ * invoice status and time period of a command, and meeting prep (focus aid
+ * 4). The same rules hold for them (see the notes in @attune/jev):
+ *   - Next-record questions ride along when the client sends record
+ *     candidates. The candidates live in the Choice criteria, never in the
+ *     state, so the state stays the same for every other question.
  *   - The goal-done Noul and the next-task Choice (focus aid 2) follow the
  *     same rule: the working goal rides in the Noul's instructions and the
  *     task candidates in the Choice's criteria, never in the state.
  *   - So do the link questions ("Arrange linked panels by next step"): the
  *     clicked record rides in their instructions as structured data
  *     (`clicked_record`) and the linked records in the link-next criteria.
+ *
+ * Pure (no I/O) so tests and the eval script can inspect exactly what is sent.
  */
+import {
+  actionCriteria,
+  buildCoreCommandQuestions,
+  buildCoreQuestions,
+  buildCoreState,
+  CORE_QUESTION_IDS,
+  EXPERTISE_LEVELS,
+  nowEvidence,
+  RELEVANCE_LEVELS,
+  relevancePanel,
+  type JevState,
+} from "@attune/jev";
 import { choice, noul, score } from "@typesafe-ai/sdk";
 import type { EntryType, JsonValue, NoulQuestion, Question } from "@typesafe-ai/sdk";
-import {
-  ACTION_IDS,
-  ACTIONS,
-  GOAL_IDS,
-  GOALS,
-  LAYOUT_MODE_DEFS,
-  LAYOUT_MODES,
-  PANEL_IDS,
-  PANELS,
-  type GoalId,
-  type PanelId,
-} from "../shared/catalog.ts";
+import { CATALOG, GOALS, PANELS, type PanelId } from "../shared/catalog.ts";
 import { CLIENTS } from "../shared/fixtures.ts";
 import type {
   AdaptRequest,
@@ -57,17 +52,16 @@ import type {
 } from "../shared/types.ts";
 
 // ---------------------------------------------------------------------------
-// Question ids (internal; normalize.ts reads answers by these)
+// Question ids (internal; normalize.ts reads answers by these). The core ids
+// come from @attune/jev.
 // ---------------------------------------------------------------------------
 
-const REL_PREFIX = "rel_";
-
 export const QUESTION_IDS = {
-  goal: "goal",
-  struggling: "struggling",
-  layout: "layout",
-  expertise: "expertise",
-  nextAction: "next_action",
+  goal: CORE_QUESTION_IDS.goal,
+  struggling: CORE_QUESTION_IDS.struggling,
+  layout: CORE_QUESTION_IDS.layout,
+  expertise: CORE_QUESTION_IDS.expertise,
+  nextAction: CORE_QUESTION_IDS.nextAction,
   targetClient: "target_client",
   nextRecord: "next_record",
   listWork: "list_work",
@@ -75,10 +69,10 @@ export const QUESTION_IDS = {
   nextTask: "next_task",
   linkNext: "link_next",
   linkAction: "link_action",
-  relevance: (panel: PanelId): string => `${REL_PREFIX}${panel}`,
+  relevance: (panel: PanelId): string => CORE_QUESTION_IDS.relevance(panel),
   command: {
-    panel: "cmd_panel",
-    action: "cmd_action",
+    panel: CORE_QUESTION_IDS.command.panel,
+    action: CORE_QUESTION_IDS.command.action,
     invoiceStatus: "cmd_invoice_status",
     client: "cmd_client",
     timeframe: "cmd_timeframe",
@@ -87,15 +81,12 @@ export const QUESTION_IDS = {
 
 /** The panel a relevance question id belongs to, or null for other ids. */
 export function panelFromQuestionId(id: string): PanelId | null {
-  if (!id.startsWith(REL_PREFIX)) return null;
-  const panel = id.slice(REL_PREFIX.length);
-  return (PANEL_IDS as readonly string[]).includes(panel) ? (panel as PanelId) : null;
+  return relevancePanel(CATALOG, id);
 }
 
 /** No-match option names. Kept distinct so code can tell "no client" from "command names none". */
 export const NO_CLIENT = "none";
 export const CLIENT_NOT_MENTIONED = "not_mentioned";
-export const PANEL_UNCLEAR = "unclear";
 /** No-match option of the next-record Choice. Record ids always contain ":", so they never collide with it. */
 export const NO_RECORD = "none";
 /** No-match option of the next-task Choice. validate.ts and taskCandidates drop a task with this id. */
@@ -107,97 +98,26 @@ export const NO_LINK_RECORD = "none";
 // State
 // ---------------------------------------------------------------------------
 
-export type JevState = { [key: string]: JsonValue };
-
 const APP_DESCRIPTION =
   "A one-screen workspace for Fernhill Studio, a small design studio. Its panels show the inbox, calendar, tasks, invoices, clients, projects, revenue, team, notes, and a guide.";
-
-const NO_ACTIVITY = "No activity yet. The user has just opened the workspace.";
-const NO_ACTIVITY_BEFORE_COMMAND = "No earlier activity. The command is the first thing the user did.";
-const NO_FOCUS = "No panel is in focus.";
-const NO_OBSERVATIONS = "Nothing notable yet.";
 
 function cleanCommand(req: AdaptRequest): string | null {
   const text = req.command?.trim();
   return text ? text : null;
 }
 
-/** The activity line the client logs for typing `command` (describeEvent in src/engine/snapshot.ts). */
-function commandLine(command: string): string {
-  return `Typed in the command bar: "${command}"`;
-}
-
+/** The core state (buildCoreState in @attune/jev), plus `client_companies` with a command. */
 export function buildState(req: AdaptRequest): JevState {
   const command = cleanCommand(req);
-  let activity = req.snapshot.recent_activity;
-  // The app logs the command before sending it, so it would also arrive as
-  // latest_activity. Said twice, it lowered Jev's action confidence ("remind
-  // meridian to pay" 0.96 alone, 0.63 duplicated). `command` and COMMAND_NOTE
-  // already say the user just typed it.
-  if (command && activity.at(-1)?.startsWith(commandLine(command))) activity = activity.slice(0, -1);
-  const observations = req.snapshot.behavior_observations;
-  const state: JevState = {
-    app: APP_DESCRIPTION,
-    earlier_activity: activity.slice(0, -1),
-    latest_activity: activity.at(-1) ?? (command ? NO_ACTIVITY_BEFORE_COMMAND : NO_ACTIVITY),
-    current_focus: req.snapshot.current_focus ?? NO_FOCUS,
-    visible_panels: [...req.snapshot.visible_panels],
-    behavior_observations: observations.length > 0 ? [...observations] : [NO_OBSERVATIONS],
-  };
-  if (command) {
-    state.command = command;
-    // Lets a bare name such as "atlas" read as a client, for every question.
-    state.client_companies = clientCandidates(req);
-  }
+  const state = buildCoreState({ app: APP_DESCRIPTION, snapshot: req.snapshot, command });
+  // Lets a bare name such as "atlas" read as a client, for every question.
+  if (command) state.client_companies = clientCandidates(req);
   return state;
 }
 
 // ---------------------------------------------------------------------------
-// Shared wording
+// Shared wording (the core wording is in @attune/jev)
 // ---------------------------------------------------------------------------
-
-// Deliberately neutral about recency. Drafts that said "the newest activity
-// matters most" or "when they disagree, go with the newer" let one last click
-// (a Team focus, an inbox search for an invoice) outvote the whole task.
-const ORDER_NOTE =
-  "`earlier_activity` lists older actions, oldest first, and `latest_activity` is the newest. Together they show what the user is working on.";
-
-const COMMAND_NOTE = "The user just typed `command` into the command bar. It says what they want now.";
-
-/** The evidence a "what is the user doing now" question should read. */
-function nowEvidence(hasCommand: boolean): JsonValue {
-  const fields = ["`latest_activity`", "`current_focus`", "`earlier_activity`"];
-  if (hasCommand) fields.unshift("`command`");
-  const notes = [ORDER_NOTE];
-  if (hasCommand) notes.unshift(COMMAND_NOTE);
-  return { read: fields, note: notes.join(" ") };
-}
-
-// Relevance is about usefulness for the user's work, not about where the pointer
-// was: the client policy already weighs code-measured recent use separately.
-// Says "work", never "task": Jev read "the task" as a to-do item the user had
-// opened and marked the calendar as not needed for it.
-const RELEVANCE_LEVELS = [
-  "Not useful: the panel has nothing to do with what the user is working on.",
-  "Background only: the panel is loosely related, but the user's current work does not need it.",
-  "Supporting: the panel shows information that the user's current work draws on.",
-  "Central: the user's current work happens in this panel, or the panel holds the main information that work needs.",
-] as const;
-
-// Boundary case from the "lost" scenario: a user who searches Tasks for bills is
-// looking for Invoices. (A broader "not by which panel they used last" was read
-// literally and pushed the last-used panel down.)
-const RELEVANCE_NOTE =
-  "A search in a panel that did not find what the user wanted does not make that panel useful.";
-
-// Level 0 is about not finding the way, not about mouse use or speed: "explores
-// slowly with the mouse" matched a careful reader's pace line word for word and
-// judged a purposeful user as new.
-const EXPERTISE_LEVELS = [
-  "Still finding their way: searches that find nothing, opening the guide, or trying several places before finding things.",
-  "Comfortable: finds what they need and works steadily, mostly with the mouse, with an occasional keyboard shortcut.",
-  "Expert: moves with the command bar and keyboard shortcuts and acts quickly.",
-] as const;
 
 const INVOICE_STATUS_CRITERIA: Record<InvoiceStatusArg, string> = {
   overdue: "Overdue bills: past their due date and still not paid.",
@@ -330,56 +250,6 @@ const LINK_NEXT_LIKELY = [
 ];
 const LINK_ACTION_QUESTION = "Which one of these actions does `clicked_record` ask the user to take?";
 const LINK_ACTION_RULE = "Pick none when `clicked_record` does not ask the user to do anything.";
-
-/**
- * What each goal is not, for the pairs Jev confused in live runs (an inbox
- * search for an invoice read as inbox triage). Same field names on every
- * option so the options compare directly, per the Choice docs.
- */
-const GOAL_NOT_FOR: Record<GoalId, string> = {
-  triage_inbox: "Searching the inbox for one bill, project, or client while working on that.",
-  plan_day: "Working through one client's or one project's details.",
-  collect_payments: "Looking at revenue charts or totals for the year.",
-  manage_client: "Mainly chasing overdue or unpaid invoices.",
-  track_projects: "Only checking who on the team is free.",
-  review_business: "Chasing one specific unpaid invoice.",
-  coordinate_team: "Only checking a project's progress or deadline.",
-  capture_notes: "Adding an item to the to-do list.",
-  unclear: "Activity that clearly fits one of the other goals.",
-};
-
-function goalCriteria(): Record<string, EntryType> {
-  return Object.fromEntries(
-    GOAL_IDS.map((id) => [id, { goal: GOALS[id].label, what: GOALS[id].description, not_for: GOAL_NOT_FOR[id] }]),
-  );
-}
-
-/**
- * Example commands per panel, as in the function-calling cookbook's spec.
- * Written to differ from the eval's COMMAND_CASES so the eval stays honest.
- */
-const PANEL_COMMAND_EXAMPLES: Record<PanelId, string[]> = {
-  inbox: ["find the email from Priya", "any new messages from clients"],
-  calendar: ["what meetings do I have tomorrow", "book a call with Juniper"],
-  tasks: ["what do I need to finish this week", "add a to-do to send the files"],
-  invoices: ["which bills are still unpaid", "show late invoices", "send Kite a payment reminder"],
-  clients: ["open Pinecrest Clinic", "contact details for Kite & Co."],
-  projects: ["which projects are behind schedule", "how is the signage project going"],
-  analytics: ["how much did we earn this year", "show the revenue chart"],
-  team: ["who is out of the office", "what is Riley working on"],
-  notes: ["write down an idea", "open my scratch pad"],
-  help: ["how does this workspace work", "what keyboard shortcuts are there"],
-};
-
-function panelOption(id: PanelId): EntryType {
-  return { panel: PANELS[id].title, shows: PANELS[id].description, examples: PANEL_COMMAND_EXAMPLES[id] };
-}
-
-function actionCriteria(noneDescription: string): Record<string, string> {
-  return Object.fromEntries(
-    ACTION_IDS.map((id) => [id, id === "none" ? noneDescription : ACTIONS[id].description]),
-  );
-}
 
 /**
  * Client options. The contact person helps Jev match activity such as
@@ -524,91 +394,18 @@ function taskOption(task: TaskCandidate): EntryType {
 // Questions
 // ---------------------------------------------------------------------------
 
+/**
+ * Every question for one round: the core questions from @attune/jev, then the
+ * demo's own, then (with a command) the core command questions and the
+ * demo's. The order is the order Jev receives them in.
+ */
 export function buildQuestions(req: AdaptRequest): Record<string, Question> {
   const command = cleanCommand(req);
   const hasCommand = command !== null;
   const clients = clientCandidates(req);
   const records = recordCandidates(req);
   const evidence = nowEvidence(hasCommand);
-  const questions: Record<string, Question> = {};
-
-  questions[QUESTION_IDS.goal] = choice(
-    {
-      question: "Which goal is the user working on right now?",
-      evidence,
-    },
-    goalCriteria(),
-  );
-
-  // No `evidence` block here: ten copies of it were 14% of the input tokens,
-  // and the live A/B kept the same top panel without it. Jev reads the whole
-  // state for every question anyway.
-  for (const id of PANEL_IDS) {
-    questions[QUESTION_IDS.relevance(id)] = score(
-      {
-        panel: { name: PANELS[id].title, what_it_shows: PANELS[id].description },
-        question: "How useful would `panel` be on screen right now for what the user is working on?",
-        note: RELEVANCE_NOTE,
-      },
-      RELEVANCE_LEVELS,
-    );
-  }
-
-  questions[QUESTION_IDS.struggling] = noul(
-    {
-      question: "Is the user stuck: unable to find something, or unable to finish a step?",
-      read: ["`earlier_activity`", "`latest_activity`", "`behavior_observations`"],
-    },
-    {
-      // Signs describe general patterns, never particular sessions. The code
-      // counts the evidence for them (behavior_observations).
-      true: {
-        what: "The user is stuck.",
-        signs: [
-          "The same search repeated or reworded",
-          "A search phrased as a question about how to do something or where something is",
-          "Panels opened and then closed again quickly",
-          "Undo used",
-          "Moving between panels without opening anything or getting anything done",
-        ],
-      },
-      false: {
-        what: "The user is getting on with their work, or there is too little activity to tell.",
-        signs: [
-          "Each action follows from the one before",
-          "Filtering a list and then opening an item from it",
-          "Moving between two related records to compare them",
-          "Returning to a record once, or one search for something related to the record at hand",
-          "Only one or two actions so far",
-        ],
-      },
-    },
-  );
-
-  questions[QUESTION_IDS.layout] = choice(
-    {
-      question: "Which screen layout fits how the user is working right now?",
-      read: ["`latest_activity`", "`earlier_activity`", "`behavior_observations`"],
-    },
-    Object.fromEntries(LAYOUT_MODES.map((mode) => [mode, LAYOUT_MODE_DEFS[mode].description])),
-  );
-
-  questions[QUESTION_IDS.expertise] = score(
-    {
-      question: "How familiar is the user with this workspace, judging by how they move around and how quickly they act?",
-      read: ["`behavior_observations`", "`earlier_activity`", "`latest_activity`"],
-    },
-    EXPERTISE_LEVELS,
-  );
-
-  questions[QUESTION_IDS.nextAction] = choice(
-    {
-      question: "Which one next step would the user most likely want to take now?",
-      evidence,
-      rule: "Pick none when no listed step clearly follows from what the user is doing.",
-    },
-    actionCriteria("No clear next step: the activity does not point to any of these steps."),
-  );
+  const questions: Record<string, Question> = buildCoreQuestions(CATALOG, { hasCommand });
 
   if (clients.length > 0) {
     questions[QUESTION_IDS.targetClient] = choice(
@@ -707,33 +504,17 @@ export function buildQuestions(req: AdaptRequest): Record<string, Question> {
         question: LINK_ACTION_QUESTION,
         rule: LINK_ACTION_RULE,
       },
-      actionCriteria("No action: `clicked_record` does not ask the user to do any of these."),
+      actionCriteria(CATALOG, "No action: `clicked_record` does not ask the user to do any of these."),
     );
   }
 
   if (hasCommand) {
-    questions[QUESTION_IDS.command.panel] = choice(
-      {
-        question: "Which panel best answers or carries out `command`?",
+    Object.assign(
+      questions,
+      buildCoreCommandQuestions(CATALOG, {
         // Without this, a bare "atlas" has nothing to match and lands on "unclear".
-        rule: "A command that only names one of `client_companies` asks to see that client.",
-      },
-      {
-        ...Object.fromEntries(PANEL_IDS.map((id) => [id, panelOption(id)])),
-        [PANEL_UNCLEAR]: {
-          panel: "No panel",
-          shows: "`command` matches none of these panels, or it is too vague to tell.",
-          examples: ["hello", "do the thing"],
-        },
-      },
-    );
-
-    questions[QUESTION_IDS.command.action] = choice(
-      {
-        question: "Does `command` ask to perform one of these actions?",
-        rule: "Pick none when `command` only asks to see or find something.",
-      },
-      actionCriteria("No action: `command` asks to see or find something, or asks for none of these actions."),
+        panelRule: "A command that only names one of `client_companies` asks to see that client.",
+      }),
     );
 
     questions[QUESTION_IDS.command.invoiceStatus] = choice(

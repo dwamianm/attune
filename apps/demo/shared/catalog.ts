@@ -38,6 +38,11 @@ export type PanelId = (typeof PANEL_IDS)[number];
 /** One panel. `icon` is a lucide-react icon name (src/ui/icons.ts). */
 export type PanelDef = LibPanelDef<PanelId>;
 
+/**
+ * `commandExamples` are example commands per panel, as in the
+ * function-calling cookbook's spec, for the command panel question. They are
+ * written to differ from the eval's COMMAND_CASES so the eval stays honest.
+ */
 export const PANELS: Record<PanelId, PanelDef> = {
   inbox: {
     id: "inbox",
@@ -46,6 +51,7 @@ export const PANELS: Record<PanelId, PanelDef> = {
       "Email messages from clients and teammates. The user reads, searches, and replies to messages here.",
     icon: "Inbox",
     defaultVisible: true,
+    commandExamples: ["find the email from Priya", "any new messages from clients"],
   },
   calendar: {
     id: "calendar",
@@ -54,6 +60,7 @@ export const PANELS: Record<PanelId, PanelDef> = {
       "Today's and this week's meetings and calls. The user checks their schedule and books meetings here.",
     icon: "CalendarDays",
     defaultVisible: true,
+    commandExamples: ["what meetings do I have tomorrow", "book a call with Juniper"],
   },
   tasks: {
     id: "tasks",
@@ -62,6 +69,7 @@ export const PANELS: Record<PanelId, PanelDef> = {
       "The user's to-do list with due dates, linked to projects. The user adds, checks off, and reorders tasks here.",
     icon: "ListChecks",
     defaultVisible: true,
+    commandExamples: ["what do I need to finish this week", "add a to-do to send the files"],
   },
   invoices: {
     id: "invoices",
@@ -70,6 +78,7 @@ export const PANELS: Record<PanelId, PanelDef> = {
       "Bills sent to clients, with amount, due date, and status (draft, sent, overdue, paid). The user sends payment reminders and marks invoices paid here.",
     icon: "Receipt",
     defaultVisible: true,
+    commandExamples: ["which bills are still unpaid", "show late invoices", "send Kite a payment reminder"],
   },
   clients: {
     id: "clients",
@@ -78,6 +87,7 @@ export const PANELS: Record<PanelId, PanelDef> = {
       "The list of client companies with contact person, email, and a summary of their projects and invoices.",
     icon: "Building2",
     defaultVisible: true,
+    commandExamples: ["open Pinecrest Clinic", "contact details for Kite & Co."],
   },
   projects: {
     id: "projects",
@@ -86,6 +96,7 @@ export const PANELS: Record<PanelId, PanelDef> = {
       "Client projects with progress, deadline, and status (on track, at risk, blocked, done).",
     icon: "KanbanSquare",
     defaultVisible: true,
+    commandExamples: ["which projects are behind schedule", "how is the signage project going"],
   },
   analytics: {
     id: "analytics",
@@ -94,6 +105,7 @@ export const PANELS: Record<PanelId, PanelDef> = {
       "Charts of monthly revenue, money still owed by clients, and totals for the year.",
     icon: "ChartColumn",
     defaultVisible: false,
+    commandExamples: ["how much did we earn this year", "show the revenue chart"],
   },
   team: {
     id: "team",
@@ -102,6 +114,7 @@ export const PANELS: Record<PanelId, PanelDef> = {
       "The studio's team members, what each person is working on, and who is available or away today.",
     icon: "Users",
     defaultVisible: false,
+    commandExamples: ["who is out of the office", "what is Riley working on"],
   },
   notes: {
     id: "notes",
@@ -109,6 +122,7 @@ export const PANELS: Record<PanelId, PanelDef> = {
     description: "A scratch pad where the user writes quick notes and ideas.",
     icon: "NotebookPen",
     defaultVisible: false,
+    commandExamples: ["write down an idea", "open my scratch pad"],
   },
   help: {
     id: "help",
@@ -117,6 +131,7 @@ export const PANELS: Record<PanelId, PanelDef> = {
       "Tips on how to use this workspace: the command bar, shortcuts, and how panels move. Useful when the user seems lost.",
     icon: "LifeBuoy",
     defaultVisible: false,
+    commandExamples: ["how does this workspace work", "what keyboard shortcuts are there"],
   },
 };
 
@@ -134,45 +149,59 @@ export const GOAL_IDS = [
 ] as const;
 export type GoalId = (typeof GOAL_IDS)[number];
 
+/**
+ * `notFor` says what each goal is not, for the pairs Jev confused in live
+ * runs (an inbox search for an invoice read as inbox triage). Every goal has
+ * one, so the options compare directly, per the Choice docs.
+ */
 export const GOALS: Record<GoalId, GoalDef> = {
   triage_inbox: {
     label: "Working through the inbox",
     description: "Reading, sorting, and replying to email messages.",
+    notFor: "Searching the inbox for one bill, project, or client while working on that.",
   },
   plan_day: {
     label: "Planning the day",
     description: "Looking at today's meetings and tasks to decide what to do and when.",
+    notFor: "Working through one client's or one project's details.",
   },
   collect_payments: {
     label: "Collecting payments",
     description:
       "Checking unpaid or overdue invoices and getting clients to pay them.",
+    notFor: "Looking at revenue charts or totals for the year.",
   },
   manage_client: {
     label: "Working on one client",
     description:
       "Focusing on a single client company: its contact details, messages, projects, and invoices.",
+    notFor: "Mainly chasing overdue or unpaid invoices.",
   },
   track_projects: {
     label: "Tracking projects",
     description: "Checking project progress, deadlines, blockers, and related tasks.",
+    notFor: "Only checking who on the team is free.",
   },
   review_business: {
     label: "Reviewing the business",
     description: "Looking at revenue, money owed, and how the business is doing overall.",
+    notFor: "Chasing one specific unpaid invoice.",
   },
   coordinate_team: {
     label: "Coordinating the team",
     description: "Checking who on the team is available and who is working on what.",
+    notFor: "Only checking a project's progress or deadline.",
   },
   capture_notes: {
     label: "Writing notes",
     description: "Writing down notes, ideas, or meeting minutes.",
+    notFor: "Adding an item to the to-do list.",
   },
   unclear: {
     label: "Not sure yet",
     description:
       "There is too little activity, or the activity is too mixed, to tell what the user is working on.",
+    notFor: "Activity that clearly fits one of the other goals.",
   },
 };
 

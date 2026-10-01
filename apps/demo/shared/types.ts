@@ -10,10 +10,20 @@
  * Jev only supplies judgments. All thresholds, weights, hysteresis, and the
  * final layout are decided in client code (src/engine/policy.ts).
  */
-import type { ChangeSummary as LibChangeSummary, GridCell, GridColumns, PanelSize } from "@attune/core";
+import type {
+  ChangeSummary as LibChangeSummary,
+  ChoiceJudgment,
+  CoreCommandJudgments,
+  CoreJudgments,
+  GridCell,
+  GridColumns,
+  InteractionSnapshot,
+  PanelSize,
+  ScoreJudgment,
+} from "@attune/core";
 import type { ActionId, GoalId, LayoutMode, PanelId } from "./catalog.ts";
 
-export type { GridCell, GridColumns, PanelSize } from "@attune/core";
+export type { ChoiceJudgment, GridCell, GridColumns, InteractionSnapshot, PanelSize, ScoreJudgment } from "@attune/core";
 
 // ---------------------------------------------------------------------------
 // Signals captured in the browser
@@ -88,24 +98,9 @@ export interface SignalEvent extends TrackInput {
 }
 
 // ---------------------------------------------------------------------------
-// Request: what the client sends to the server
+// Request: what the client sends to the server. The snapshot shape
+// (InteractionSnapshot) comes from @attune/core.
 // ---------------------------------------------------------------------------
-
-/**
- * A compact, words-only picture of what the user has been doing.
- * Jev reads semantic text better than raw numbers, so code turns counts and
- * timings into short sentences before they get here.
- */
-export interface InteractionSnapshot {
-  /** Oldest first, newest last. At most 15 entries. */
-  recent_activity: string[];
-  /** Plain sentence, for example "Invoices panel, viewing invoice INV-1042 (Harbor Coffee Co., overdue)". */
-  current_focus: string | null;
-  /** Titles of panels currently on screen. */
-  visible_panels: string[];
-  /** Code-derived facts in words, for example "Searched 3 times in the last minute". */
-  behavior_observations: string[];
-}
 
 /** Longest command the server reads. The command bar caps input at this, and the server clips longer text. */
 export const COMMAND_MAX_LENGTH = 300;
@@ -205,24 +200,9 @@ export interface AdaptRequest {
 }
 
 // ---------------------------------------------------------------------------
-// Response: typed judgments from Jev (or the heuristic fallback)
+// Response: typed judgments from Jev (or the heuristic fallback). The core
+// judgments and the Choice and Score shapes come from @attune/core.
 // ---------------------------------------------------------------------------
-
-export interface ChoiceJudgment<K extends string = string> {
-  choice: K;
-  confidence: number;
-  probabilities: Record<K, number>;
-}
-
-export interface ScoreJudgment {
-  /** Probability-weighted level, 0..max. */
-  score: number;
-  /** Highest level index (levels - 1). */
-  max: number;
-  confidence: number;
-  /** Probability per level, index = level. */
-  probabilities: number[];
-}
 
 export const INVOICE_STATUS_ARGS = ["overdue", "unpaid", "paid", "draft", "all", "not_mentioned"] as const;
 export type InvoiceStatusArg = (typeof INVOICE_STATUS_ARGS)[number];
@@ -230,28 +210,16 @@ export type InvoiceStatusArg = (typeof INVOICE_STATUS_ARGS)[number];
 export const TIMEFRAME_ARGS = ["today", "this_week", "this_month", "not_mentioned"] as const;
 export type TimeframeArg = (typeof TIMEFRAME_ARGS)[number];
 
-/** Only present when AdaptRequest.command was set. */
-export interface CommandJudgments {
-  /** Which panel best answers the command. */
-  panel: ChoiceJudgment<PanelId | "unclear">;
-  /** Which action the command asks for, if any. */
-  action: ChoiceJudgment<ActionId>;
+/** Only present when AdaptRequest.command was set. The panel and the action are the core command judgments. */
+export interface CommandJudgments extends CoreCommandJudgments<PanelId, ActionId> {
   invoiceStatus: ChoiceJudgment<InvoiceStatusArg>;
   /** One of AdaptRequest.candidates.clients, or "not_mentioned". */
   client: ChoiceJudgment<string>;
   timeframe: ChoiceJudgment<TimeframeArg>;
 }
 
-export interface Judgments {
-  goal: ChoiceJudgment<GoalId>;
-  /** One comparable Score per panel: how useful the panel is right now. */
-  relevance: Record<PanelId, ScoreJudgment>;
-  /** Noul: probability the user is having trouble. Near 0.5 means unsure, not "medium". */
-  struggling: number;
-  layout: ChoiceJudgment<LayoutMode>;
-  /** 0 = new, 1 = comfortable, 2 = expert. */
-  expertise: ScoreJudgment;
-  nextAction: ChoiceJudgment<ActionId>;
+/** The core judgments (goal, relevance, struggling, layout, expertise, next action) and the demo's own. */
+export interface Judgments extends CoreJudgments<PanelId, GoalId, ActionId> {
   /** Which client the current work is about: a candidate name or "none". */
   targetClient: ChoiceJudgment<string>;
   /** Which RecordCandidate id the user will most likely work on next, or "none". Absent when no candidates were sent. */

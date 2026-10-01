@@ -103,6 +103,26 @@ describe("defineCatalog", () => {
     expect(problemsOf({ ...c, goalPanelAffinity: { ...c.goalPanelAffinity, plan: {} } })).toEqual(['affinity entry "plan" is not a goal id']);
   });
 
+  it("keeps the command panel question's no-match id free", () => {
+    const c = valid();
+    const withUnclear = { ...c, panelIds: [...c.panelIds, "unclear"], panels: { ...c.panels, unclear: { ...c.panels.notes, id: "unclear" } } };
+    expect(problemsOf(withUnclear)).toEqual(['no panel may have the id "unclear", the command panel question\'s no-match option']);
+  });
+
+  it("wants the model hints on every panel and goal, or on none", () => {
+    const c = valid();
+    const someExamples = { ...c, panels: { ...c.panels, notes: { ...c.panels.notes, commandExamples: ["write an idea down"] } } };
+    expect(problemsOf(someExamples)).toEqual(['commandExamples is set on some panels but not on "tasks"']);
+    const someNotFor = { ...c, goals: { ...c.goals, write: { ...c.goals.write, notFor: "Adding a to-do item." } } };
+    expect(problemsOf(someNotFor)).toEqual(['notFor is set on some goals but not on "unclear"']);
+    const all = {
+      ...someExamples,
+      panels: { ...someExamples.panels, tasks: { ...c.panels.tasks, commandExamples: ["add a to-do"] } },
+      goals: { write: { ...c.goals.write, notFor: "Adding a to-do item." }, unclear: { ...c.goals.unclear, notFor: "Activity that fits writing." } },
+    };
+    expect(problemsOf(all)).toEqual([]);
+  });
+
   it("lists every problem in one error", () => {
     const c = valid();
     const broken = { ...c, actionIds: ["add_task"], actions: { add_task: { ...c.actions.add_task, panel: "inbox" } }, goalPanelAffinity: { write: { notes: 2 }, unclear: {} } };

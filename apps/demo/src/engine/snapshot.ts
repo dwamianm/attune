@@ -11,7 +11,7 @@ import { PANELS, panelTitle, type ActionId, type PanelId } from "../../shared/ca
 import { CLIENTS, INVOICES, MESSAGES, PROJECTS } from "../../shared/fixtures.ts";
 import type { InteractionSnapshot, ItemKind, SignalDetail, SignalEvent, SignalType, TrackInput } from "../../shared/types.ts";
 import type { BuildSnapshot, DeriveObservations, DescribeEvent, SnapshotContext } from "./contract.ts";
-import { humanizeId, listWords, numberWord, possessive, secondsPhrase, timesWord } from "@attune/core";
+import { commandActivityLine, humanizeId, listWords, numberWord, possessive, secondsPhrase, timesWord } from "@attune/core";
 
 // Demo defaults. Tune freely; the tests only pin the behavior around them.
 /** Most recent activity lines sent to Jev (the contract caps it at 15). */
@@ -242,7 +242,7 @@ export const describeEvent: DescribeEvent = (input) => {
     }
     case "command": {
       const q = (d.query ?? "").trim();
-      return q ? `Typed in the command bar: "${q}"` : "Opened the command bar";
+      return q ? commandActivityLine(q) : "Opened the command bar";
     }
     case "shortcut":
       return d.key ? `Used keyboard shortcut ${d.key}${inPanel(input.panel)}` : `Used a keyboard shortcut${inPanel(input.panel)}`;

@@ -11,12 +11,13 @@
  *
  * No HTTP here: the eval script imports adapt() and prep() directly in Node.
  */
+import { JevAnswerError, type JevState } from "@attune/jev";
 import { APIError, APITimeoutError, APIUserAbortError, type Question } from "@typesafe-ai/sdk";
 import type { AdaptRequest, AdaptResponse, Judgments, PrepRequest, PrepResponse } from "../shared/types.ts";
 import { getJevClient, JEV_TIMEOUT_MS } from "./jev.ts";
 import { heuristicJudgments, heuristicPrepJudgments } from "./heuristic.ts";
-import { JevAnswerError, normalizeJudgments, normalizePrepJudgments } from "./normalize.ts";
-import { buildPrepQuestions, buildPrepState, buildQuestions, buildState, prepRecordsOf, type JevState } from "./questions.ts";
+import { normalizeJudgments, normalizePrepJudgments } from "./normalize.ts";
+import { buildPrepQuestions, buildPrepState, buildQuestions, buildState, prepRecordsOf } from "./questions.ts";
 
 /**
  * Total time adapt() gives Jev, across the attempt, the retry, and its

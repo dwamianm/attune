@@ -5,6 +5,8 @@ packages:
 # One version of each shared tool for every package. A package.json takes the
 # version from here with "catalog:", so the apps and the library never drift.
 catalog:
+  # Pinned exactly: the question wording is tuned against this SDK's behavior.
+  "@typesafe-ai/sdk": 0.6.0
   "@types/node": ^26.6.3
   "@types/react": ^19.3.0
   "@types/react-dom": ^19.3.0

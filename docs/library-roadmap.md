@@ -23,6 +23,9 @@ In `packages/` (generic, tested, used by the demo):
 | `rowFit.ts` | `@attune/core` | Fits a row of cards on one line: full, compact pill, or "+N". The app decides the cards and their order. |
 | `scheduler.ts` | `@attune/core` | `AdaptScheduler`: debounce, max wait, one request in flight, commands first. The app decides which events are triggers. |
 | `words.ts` | `@attune/core` | Numbers and ids as plain words, for the model and for people. |
+| `judgments.ts`, `snapshot.ts` | `@attune/core` | The typed answers the layout code reads (`ChoiceJudgment`, `ScoreJudgment`, `CoreJudgments`, `CoreCommandJudgments`) and the words-only `InteractionSnapshot`, with the one command activity line both sides must agree on. |
+| `questions.ts` | `@attune/jev` | The core Jev questions and state, built from the catalog: goal, relevance per panel, struggling, layout, expertise, next action, and with a command the panel and action. |
+| `answers.ts`, `normalize.ts` | `@attune/jev` | The readers that check each answer against the question sent and the catalog, and turn it into typed judgments. |
 | `hooks.ts` | `@attune/react` | Keyboard, debounce, throttle, clock, element size, roving lists, popovers. |
 | `guard.ts` | `@attune/server` | Loopback and CDN-edge request checks, rate limiter. |
 
@@ -67,12 +70,18 @@ Each step keeps `pnpm test` green and the demo working.
    (each event's weight; which events count as use). `choreography.ts` takes
    a panel title function. The row fit from `assistFit.ts` is `rowFit.ts`;
    the demo's card kinds and order stay in `src/ui/assistFit.ts`.
-3. **The question layer.** `server/questions.ts` builds Jev questions from
-   the catalog, and `server/normalize.ts` checks the answers against the
-   questions sent. Split each into a generic part that reads a `Catalog`
-   (into `@attune/server`, or a new `@attune/jev` if the TypeSafe SDK should
-   stay optional) and the demo's own questions (record candidates, meeting
-   prep).
+3. **The question layer.** Done. The core questions, the state, and the
+   answer readers are in a new `@attune/jev`, so `@attune/server` stays free
+   of the TypeSafe SDK (a peer dependency of `@attune/jev`). Each goal's
+   `notFor` and each panel's `commandExamples` moved into the catalog. The
+   demo keeps its own questions: clients, the next record and list work,
+   goal done and next task, the link questions, invoice status, time
+   period, and meeting prep. A dump of the state, questions, read answers,
+   and heuristic answers for all 35 eval requests was byte for byte the
+   same before and after.
+   Left as is: the expertise levels still say "opening the guide", and the
+   command panel's no-match examples are fixed English. Both are fine for
+   the demo; a second app may need them to be options.
 4. **The Jev call.** `server/adapt.ts` and `server/jev.ts`: one request,
    a total time budget, one short retry, and a fallback answer on any
    failure. Make the fallback a function the app passes (the demo passes its
