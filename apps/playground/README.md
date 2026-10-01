@@ -27,7 +27,7 @@ still, Customers and Articles get "Linked to T-201" with Larkspur Bakery and
 | `src/catalog.ts` | Panels, goals, next steps, goal-to-panel affinity | `defineCatalog` |
 | `src/data.ts` | Tickets, customers, articles, macros | none |
 | `src/engine.ts` | Words, links between records, the policy, the store | `createPolicy`, `basicSuggestions`, `basicRelation`, `panelUsage`, `eventWeight`, `createAdaptiveStore` |
-| `src/App.tsx`, `src/panels.tsx` | The canvas (a CSS grid on the plan's cells), the four panels | `useAdaptive`, `useDebouncedCallback`, `columnsForWidth`, `spanOf`, `matchesQuery` |
+| `src/App.tsx`, `src/panels.tsx` | The page, each card's header, and the four panels | `AdaptiveCanvas`, `Dock`, `ChangeLine`, `useStoreCanvas`, `useAdaptive`, `useDebouncedCallback`, `matchesQuery` |
 | `server/app.ts` | `/api/health` and `/api/adapt` | `checkRequest`, `createRateLimiter`, `parseAdaptRequest`, `buildRound`, `readRound`, `askJev`, `neutralJudgments` |
 | `server/index.ts` | Starts the server | `createRealtimeJevClient` |
 
@@ -62,9 +62,10 @@ Gaps found and filled in the library while building it:
 
 Still missing (see docs/library-roadmap.md):
 
-- **The canvas components.** The playground draws its own grid with no
-  staged motion: cards jump to their new cells. `Canvas`, `PanelFrame`, the
-  dock, and the link lines are step 7.
+- **The demo's canvas extras.** The canvas, its staged motion, the dock,
+  and the change line now come from `@attune/react` (step 7). The demo's
+  link lines, anchor note, quiet fades, and focus restore are not in the
+  library canvas yet.
 - **Commands do only panels.** The store promotes the panel a command names;
   filters and records from a command (the demo's invoice status, client, and
   time period) have no library form yet.

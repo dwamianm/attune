@@ -31,6 +31,7 @@ In `packages/` (generic, tested, used by the demo):
 | `round.ts` | `@attune/jev` | `buildRound` and `readRound`: the state and every core question for one round, and the judgments back. |
 | `request.ts` | `@attune/server` | `parseAdaptRequest`: checks and clips an adapt request body. |
 | `useAdaptive.ts` | `@attune/react` | `useAdaptive(store, selector)`: read an adaptive store (or any store with `getState` and `subscribe`) from React. |
+| `canvas.tsx` | `@attune/react` | The canvas: `AdaptiveCanvas` (each card in its plan cell, the staged round from `roundCues`, reduced motion as a fade), `PanelCard` (one animated card; it reports pointer, focus, and pointer rests), `Dock` (leaving cards fly into its items), `ChangeLine` (the last change, with Undo), `useCanvasColumns`, and `useStoreCanvas`, which wires all of it to a library store. Unstyled except for the layout; apps style it with class names and data attributes. `motion` is a peer dependency. |
 | `judgments.ts` | `@attune/core` | The typed answers the layout code reads: `ChoiceJudgment`, `ScoreJudgment`, `CoreJudgments`, `CoreCommandJudgments`. |
 | `signals.ts` | `@attune/core` | The core signal vocabulary (`CoreSignalType`: focus, open, dismiss, pin, dwell, item open, search, filter, action, command, shortcut, scroll, suggestions, undo, resize) and `SignalProfile`, which says how an app's own types count: as record opens, work, pointer use, or cue-only. |
 | `snapshot.ts` | `@attune/core` | Events into the words-only `InteractionSnapshot`: the sentences for the core types, the behavior observations and their thresholds, collapsing repeats, the focus fallback. The app gives its words (panel titles, record kinds, its actions in the past tense) and its own sentences. |
@@ -140,11 +141,18 @@ Each step keeps `pnpm test` green and the demo working.
    extra policy input, after the plan, commit gates) and extra state for each
    aid. Until then the two loops share every pure part but not the loop
    itself, so a fix to one must be checked in the other.
-7. **React components.** `Canvas`, `PanelFrame`, `Dock`, `ChangeFeed`, and
-   `LinkLines` into `@attune/react`, with a panel registry (panel id to
-   component). Tailwind v4 only scans the app by default, so the demo's CSS
-   then needs `@source "../../../packages/react/src";` for the classes in
-   the library components.
+7. **React components.** Done for apps on the library store:
+   `AdaptiveCanvas`, `PanelCard`, `Dock`, and `ChangeLine` in
+   `@attune/react`, with the demo's stage timing, the dock flight, and
+   reduced motion. The playground uses them and shows the staged rounds.
+   They draw no look of their own (no Tailwind classes), so an app's CSS
+   needs no `@source` for them. The app renders each card's content
+   (`renderCard`), which is the panel registry.
+   Still the demo's own, until it moves onto the library store (6d): its
+   `Canvas` and `PanelFrame` with the link lines, the anchor note, the ghost
+   slot after a dock, quiet fades, keyboard focus restore, the scroll safety
+   net, the front ring, and the "Why here?" popover. Those are the next
+   additions to the library canvas, as the demo moves over.
 8. **A second app.** Done: `apps/playground`, a help desk with four panels
    of its own, built only from the packages on `createAdaptiveStore` and
    `useAdaptive`, with its own Jev server. It ran live with Jev. Building it

@@ -1,13 +1,13 @@
 /**
- * The playground's whole UI: a header, the command bar, the suggestions, the
- * canvas, and the dock. The canvas is a CSS grid that places each card in the
- * cell the plan gives it (plan.grid), so the clicked card holds still. There
- * is no staged motion yet: that comes with the canvas components in
- * @attune/react (docs/library-roadmap.md, step 7).
+ * The playground's whole UI: a header, the command bar, the suggestions and
+ * the change line, the canvas, and the dock. The canvas, the cards' staged
+ * motion, the dock, and the change line are @attune/react's (AdaptiveCanvas,
+ * Dock, ChangeLine), wired to the store with useStoreCanvas; the app draws
+ * only each card's header and panel.
  */
-import { columnsForWidth, spanOf, type GridCell, type GridColumns, type PanelPlacement } from "@attune/core";
-import { useAdaptive } from "@attune/react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import type { PanelPlacement } from "@attune/core";
+import { AdaptiveCanvas, ChangeLine, Dock, useAdaptive, useStoreCanvas } from "@attune/react";
+import { useMemo, useState, type ReactNode } from "react";
 import { CATALOG, type PanelId, type RecordKind } from "./catalog.ts";
 import { TICKETS, type Ticket } from "./data.ts";
 import { createDeskStore, type DeskStore } from "./engine.ts";
@@ -24,60 +24,37 @@ const PANELS: Record<PanelId, (props: PanelProps) => ReactNode> = {
 
 const STATUS_TEXT = { idle: "Live with Jev", thinking: "Thinking", offline: "Offline: calm fallback", error: "Error" } as const;
 
-function Card(props: { store: DeskStore; p: PanelPlacement<PanelId, RecordKind>; cell: GridCell | undefined; columns: GridColumns; pinned: boolean; focused: boolean; children: ReactNode }) {
-  const { store, p, cell } = props;
-  // A plan without cells (adaptive off) flows in order, each card spanning its size.
-  const span = spanOf(p.size, props.columns);
-  const style = cell
-    ? { gridColumn: `${cell.col + 1} / span ${cell.w}`, gridRow: `${cell.row + 1} / span ${cell.h}` }
-    : { gridColumn: `span ${Math.min(span.w, props.columns)}`, gridRow: `span ${span.h}` };
+/** A card's header: title, link tag, change badge, and the pin, size, and dock buttons. */
+function CardHeader(props: { store: DeskStore; p: PanelPlacement<PanelId, RecordKind>; pinned: boolean }) {
+  const { store, p } = props;
   return (
-    <section
-      className={`card size-${p.size}${p.anchor ? " anchor" : ""}${p.relation ? " is-linked" : ""}`}
-      style={style}
-      onPointerEnter={() => store.setPointer({ panel: p.id, down: false })}
-      onPointerDown={() => {
-        store.setPointer({ panel: p.id, down: true });
-        if (!props.focused) store.track({ type: "panel_focus", panel: p.id, detail: { via: "pointer" } });
-      }}
-    >
+    <>
       <header>
         <h2>{CATALOG.panels[p.id].title}</h2>
         {p.relation && <span className="tag" title={p.relation.reason}>{p.relation.tag}</span>}
         {p.change && <span className="badge">{p.change === "added" ? "New" : p.change === "promoted" ? "Up" : "Down"}</span>}
         <span className="tools">
-          <button type="button" title={props.pinned ? "Unpin" : "Pin"} onClick={() => (props.pinned ? store.unpin(p.id) : store.pin(p.id))}>
-            {props.pinned ? "Unpin" : "Pin"}
-          </button>
+          <button type="button" onClick={() => (props.pinned ? store.unpin(p.id) : store.pin(p.id))}>{props.pinned ? "Unpin" : "Pin"}</button>
           <button type="button" onClick={() => (p.bigger ? store.restore(p.id) : store.maximize(p.id))}>{p.bigger ? "Smaller" : "Bigger"}</button>
           <button type="button" onClick={() => store.dismiss(p.id)}>Dock</button>
         </span>
       </header>
       <p className="reason">{p.reason}</p>
-      {props.children}
-    </section>
+    </>
   );
 }
 
 export function App() {
-  const plan = useAdaptive(store, (s) => s.plan);
+  const canvas = useStoreCanvas(store);
+  const plan = canvas.plan;
   const status = useAdaptive(store, (s) => s.status);
   const goal = useAdaptive(store, (s) => s.goal);
-  const columns = useAdaptive(store, (s) => s.columns);
   const command = useAdaptive(store, (s) => s.command);
   const adaptive = useAdaptive(store, (s) => s.settings.adaptive);
   const canUndo = useAdaptive(store, (s) => s.previousPlan !== null);
   const pinned = useAdaptive(store, (s) => s.pinned);
-  const focused = useAdaptive(store, (s) => s.focusedPanel);
   const [tickets, setTickets] = useState<Ticket[]>(TICKETS);
   const [text, setText] = useState("");
-
-  useEffect(() => {
-    const fit = () => store.setColumns(columnsForWidth(window.innerWidth));
-    fit();
-    window.addEventListener("resize", fit);
-    return () => window.removeEventListener("resize", fit);
-  }, []);
 
   const linked = useMemo(() => {
     const ids = new Set<string>();
@@ -116,43 +93,26 @@ export function App() {
             <button type="button" aria-label="Dismiss" onClick={() => store.dismissSuggestion(s)}>x</button>
           </span>
         ))}
-        <span className="changes">
-          {plan.decisions.slice(0, 2).map((d) => d.text).join("; ")}
-          {canUndo && (
-            <button type="button" className="link" onClick={() => store.undo()}>
-              Undo
-            </button>
-          )}
-        </span>
+        <ChangeLine className="changes" decisions={plan.decisions} {...(canUndo ? { onUndo: () => store.undo() } : {})} />
       </div>
 
-      <main
+      <AdaptiveCanvas
+        {...canvas}
         className="canvas"
-        style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
-        onPointerEnter={() => store.setCanvasHold("pointer", true)}
-        onPointerLeave={() => {
-          store.setCanvasHold("pointer", false);
-          store.setPointer({ panel: null, down: false });
-        }}
-      >
-        {plan.placements.map((p) => {
+        cardClassName={(p) => `card size-${p.size}`}
+        renderCard={(p) => {
           const Panel = PANELS[p.id];
           return (
-            <Card key={p.id} store={store} p={p} cell={plan.grid?.cells[p.id]} columns={columns} pinned={pinned.includes(p.id)} focused={focused === p.id}>
+            <>
+              <CardHeader store={store} p={p} pinned={pinned.includes(p.id)} />
               <Panel store={store} compact={p.size === "compact"} linked={linked} tickets={tickets} setTickets={setTickets} />
-            </Card>
+            </>
           );
-        })}
-      </main>
+        }}
+        empty={<p className="summary">Everything is in the dock. Pick a panel below to bring it back.</p>}
+      />
 
-      <nav className="dock">
-        <span>Dock</span>
-        {plan.docked.map((id) => (
-          <button key={id} type="button" onClick={() => store.open(id)}>
-            {CATALOG.panels[id].title}
-          </button>
-        ))}
-      </nav>
+      <Dock className="dock" docked={plan.docked} label={(id) => CATALOG.panels[id].title} onOpen={(id) => store.open(id)} />
     </div>
   );
 }

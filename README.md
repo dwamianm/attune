@@ -18,8 +18,9 @@ packages/
                             grid packer, the request scheduler, recent use, the quiet
                             rule, the staged relayout timing, the row fit, plain-word
                             helpers. No DOM, no React, no network.
-  react/    @attune/react   React bindings: useAdaptive (read an adaptive store), and
-                            generic hooks (keyboard, sizes, roving lists, popovers).
+  react/    @attune/react   React bindings: the adaptive canvas with staged relayouts
+                            (AdaptiveCanvas, PanelCard, Dock, ChangeLine), useAdaptive
+                            and useStoreCanvas for a library store, and generic hooks.
   jev/      @attune/jev     The Jev question layer: the core questions built from the
                             catalog, readers that turn answers into typed judgments,
                             and one round with a time budget and the app's fallback.

@@ -37,11 +37,10 @@ button:disabled { opacity: 0.5; cursor: default; }
 .suggestion { display: inline-flex; gap: 2px; }
 .suggestion.primary button:first-child { background: var(--accent); color: white; border-color: var(--accent); }
 .changes { font-size: 12px; display: inline-flex; gap: 8px; align-items: center; }
-.link { border: 0; color: var(--accent); }
-.canvas { display: grid; grid-auto-rows: 104px; gap: 12px; }
+.changes button { border: 0; color: var(--accent); }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; overflow: hidden; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
-.card.anchor { border-color: var(--accent); }
-.card.is-linked { border-color: var(--link); }
+.card[data-anchor] { border-color: var(--accent); }
+.card[data-linked] { border-color: var(--link); }
 .card header { display: flex; align-items: center; gap: 8px; }
 .card h2 { font-size: 14px; margin: 0; }
 .tools { margin-left: auto; display: inline-flex; gap: 4px; }
