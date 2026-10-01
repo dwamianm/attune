@@ -3,21 +3,23 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "React bindings for Attune. Today: small hooks for keyboard, sizes, roving lists, and popovers.",
+  "description": "React bindings for Attune: useAdaptive for an adaptive store, and small hooks for keyboard, sizes, roving lists, and popovers.",
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run"
   },
   "peerDependencies": {
     "react": "^19.0.0"
   },
   "devDependencies": {
     "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
     "react": "catalog:",
+    "react-dom": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

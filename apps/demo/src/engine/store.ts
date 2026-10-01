@@ -24,8 +24,6 @@ import {
   type CommandJudgments,
   type Decision,
   type Density,
-  type GridCell,
-  type GridColumns,
   type Judgments,
   type LayoutPlan,
   type LinkRequest,
@@ -51,8 +49,6 @@ import type {
   EngineStatus,
   LinkSet,
   MeetingPrepState,
-  PackItem,
-  PackResult,
   PanelViewState,
   PolicyInput,
   PrepRanking,
@@ -74,16 +70,19 @@ import {
   taskDoneOn,
   upNextOn,
 } from "./focusAids.ts";
+import * as Lib from "@attune/core";
 import {
   AdaptScheduler,
+  cellsEqual,
   emptySummary,
   judgedDensity,
-  packGrid,
+  placePlan,
+  reflowCells,
   type SendArgs,
   shownQuiet,
   SIZE_RANK,
-  summarizeChanges,
   touchQuiet,
+  withGrid,
   withoutQuiet,
 } from "@attune/core";
 import {
@@ -670,41 +669,6 @@ export const useEngine = create<Engine>()((set, get) => {
 
   // ----- the place step: explicit cells ---------------------------------------
 
-  function packItems(plan: LayoutPlan, anchorPanel: PanelId | null): PackItem[] {
-    return plan.placements.map((p) => ({
-      id: p.id,
-      size: p.size,
-      priority: p.priority,
-      pinned: p.pinned,
-      anchor: p.id === anchorPanel,
-      linked: Boolean(p.relation),
-      ...(p.bigger ? { bigger: true } : {}),
-    }));
-  }
-
-  /** Dense flow in plan order: exactly what the CSS shows for a plan without cells. */
-  function reflow(plan: LayoutPlan, columns: GridColumns = get().columns): PackResult {
-    return packGrid({ items: packItems(plan, null), columns, previous: null, hold: [] });
-  }
-
-  /**
-   * The cells the canvas shows now, for the current column count: the plan's
-   * own, or the dense flow for a plan without cells (the first plan, a reset,
-   * Adaptive just turned on). Null right after a column change.
-   */
-  function shownCells(plan: LayoutPlan): Partial<Record<PanelId, GridCell>> | null {
-    if (plan.grid) return plan.grid.columns === get().columns ? plan.grid.cells : null;
-    return reflow(plan).cells;
-  }
-
-  /** The plan with the cells it shows, so the policy can tell what is before the anchor. */
-  function withGrid(plan: LayoutPlan): LayoutPlan {
-    const columns = get().columns;
-    if (plan.grid?.columns === columns) return plan;
-    const r = reflow(plan, columns);
-    return { ...plan, grid: { columns, cells: r.cells, rows: r.rows, anchored: false } };
-  }
-
   /** The live anchor when it holds still (a command's hero goes to the front instead). */
   function workAnchor(): AnchorRef | null {
     const a = get().anchor;
@@ -725,21 +689,6 @@ export const useEngine = create<Engine>()((set, get) => {
     return since === null || now - since < (kind === "move" ? POINTER_MOVE_HOLD_MS : POINTER_LEAVE_HOLD_MS);
   }
 
-  function cellsEqual(a: GridCell | undefined, b: GridCell | undefined): boolean {
-    return !!a && !!b && a.col === b.col && a.row === b.row && a.w === b.w && a.h === b.h;
-  }
-
-  /** Membership, a size, a cell, a relation, or the anchor changed: the UI plays a new round. */
-  function roundChanged(current: LayoutPlan, prevCells: Partial<Record<PanelId, GridCell>> | null, next: LayoutPlan): boolean {
-    if ((current.anchor?.at ?? null) !== (next.anchor?.at ?? null)) return true;
-    if (current.placements.length !== next.placements.length) return true;
-    const before = new Map(current.placements.map((p) => [p.id, p]));
-    return next.placements.some((p) => {
-      const old = before.get(p.id);
-      return !old || old.size !== p.size || Boolean(old.relation) !== Boolean(p.relation) || !cellsEqual(prevCells?.[p.id], next.grid?.cells[p.id]);
-    });
-  }
-
   /** Remember the highest round set, so rounds keep counting up after a reset. */
   function adopt(plan: LayoutPlan): void {
     roundSeq = Math.max(roundSeq, plan.round ?? 0);
@@ -754,99 +703,35 @@ export const useEngine = create<Engine>()((set, get) => {
     return get().settings.adaptive || plan.placements.some((p) => p.bigger);
   }
 
-  interface PlaceOptions {
-    /** A manual edit: every card already on the canvas keeps its cell, so only the edited one changes. */
-    holdAll?: boolean;
-    /** An automatic round: the card under the pointer waits to move. Commands, undo, and the switches skip this. */
-    pointerHolds?: boolean;
-    /** Undo: reuse the plan's own cells when they were packed for this column count. */
-    keepGrid?: boolean;
-    /** Ignore the anchor and reflow: a pin moves to the front, where the user asked for it. */
-    reflow?: boolean;
-    /** Re-mark the per-panel decisions too (default), or only the card badges (undo keeps its own line). */
-    decisions?: boolean;
-    /** The panel the user just made bigger or smaller: it keeps its top edge and the cards in its way move (PackInput.userResized). */
-    userResized?: PanelId;
+  /** How to place a plan (PlaceOptions in @attune/core), plus the panel a pin or "Make bigger" sent to the front. */
+  interface PlaceOptions extends Lib.PlaceOptions<PanelId> {
     /** The panel a pin or "Make bigger" sent to the front: setPlanDirect records it in EngineState.toFront with the plan, in one update. */
     toFront?: PanelId;
   }
 
   /**
-   * The place step every plan goes through while Adaptive is on: pack
-   * explicit cells with the anchor held still, show the old size of any card
-   * whose cell was kept, re-mark what changed from the cells, and count the
-   * round. With Adaptive off the plan keeps the CSS flow, as before, unless
-   * a panel is bigger: then it gets cells too, so the bigger panel keeps its
-   * top edge (see packedLayout).
+   * The place step every plan goes through (placePlan in @attune/core): pack
+   * explicit cells with the anchor held still, keep the pointer's card from
+   * moving for a while, show the old size of any card whose cell was kept,
+   * re-mark what changed from the cells, and count the round. With Adaptive
+   * off the plan keeps the CSS flow, unless a panel is bigger (packedLayout).
    * `heldMove` is the pointer's card when this plan kept it from moving.
    */
   function place(next: LayoutPlan, opts: PlaceOptions = {}): { plan: LayoutPlan; heldMove: PanelId | null } {
     const s = get();
-    if (!packedLayout(next)) {
-      if (!next.grid) return { plan: next, heldMove: null };
-      // An edit of a packed plan going back to the CSS flow (Adaptive off,
-      // nothing bigger any more): drop its old cells, in a round with nothing to stage.
-      const { grid: _grid, ...flow } = next;
-      void _grid;
-      return { plan: { ...flow, changeSummary: emptySummary(), round: Math.max(s.plan.round ?? 0, roundSeq) + 1 }, heldMove: null };
-    }
-    const current = s.plan;
-    const columns = s.columns;
-    const prevCells = shownCells(current);
-    const anchor = opts.reflow ? null : workAnchor();
-    const anchorPanel = anchor && next.placements.some((p) => p.id === anchor.panel) ? anchor.panel : null;
-    const items = packItems(next, anchorPanel);
-    const hold = opts.holdAll ? next.placements.map((p) => p.id).filter((id) => prevCells?.[id]) : [];
-    // Without a work anchor, an automatic round settles cards in place; a
-    // command's hero and a pin still go to the front, where the user asked.
-    const unanchored = opts.reflow || s.anchor?.source === "command" ? "reflow" : "settle";
-    // A round that links panels to the click gathers them next to it, the next step first (not a manual edit).
-    const gather = anchor && anchorPanel && !opts.holdAll && !opts.userResized ? gatherOrder(next, anchor) : undefined;
-    const pack = (h: PanelId[]): PackResult =>
-      packGrid({
-        items,
-        columns,
-        previous: prevCells,
-        hold: h,
-        unanchored,
-        ...(opts.userResized ? { userResized: opts.userResized } : {}),
-        ...(gather ? { gather } : {}),
-      });
-    let result: PackResult;
-    let heldMove: PanelId | null = null;
-    const ownGrid = next.grid;
-    if (opts.keepGrid && ownGrid?.columns === columns && next.placements.every((p) => ownGrid.cells[p.id])) {
-      result = { cells: ownGrid.cells, keptSize: [], rows: ownGrid.rows, anchored: false };
-    } else {
-      result = pack(hold);
-      const ptr = opts.pointerHolds ? pointerPanel() : null;
-      if (ptr && !hold.includes(ptr) && prevCells?.[ptr] && result.cells[ptr] && holdOpen(ptr, "move", Date.now())) {
-        const wasSize = current.placements.find((p) => p.id === ptr)?.size;
-        const newSize = next.placements.find((p) => p.id === ptr)?.size;
-        if (!cellsEqual(prevCells[ptr], result.cells[ptr]) || wasSize !== newSize) {
-          hold.push(ptr);
-          result = pack(hold);
-          heldMove = ptr;
-        }
-      }
-    }
-    // A card that kept its cell shows the size that fits it.
-    const oldSize = new Map(current.placements.map((p) => [p.id, p.size]));
-    const kept = new Set([...result.keptSize, ...hold]);
-    const placements = next.placements.map((p) => {
-      const was = oldSize.get(p.id);
-      return kept.has(p.id) && was && was !== p.size ? { ...p, size: was } : p;
+    return placePlan({
+      ...opts,
+      current: s.plan,
+      next,
+      columns: s.columns,
+      packed: packedLayout(next),
+      anchor: s.anchor,
+      pointerPanel: pointerPanel(),
+      pointerMoveOpen: (ptr) => holdOpen(ptr, "move", Date.now()),
+      gather: (anchor) => gatherOrder(next, anchor),
+      roundSeq,
+      remark: remarkPanels,
     });
-    let plan: LayoutPlan = { ...next, placements, grid: { columns, cells: result.cells, rows: result.rows, anchored: result.anchored } };
-    plan = remarkPanels(current, plan, { previousCells: prevCells, decisions: opts.decisions !== false });
-    const changed = roundChanged(current, prevCells, plan);
-    const shown: LayoutPlan = prevCells ? { ...current, grid: { columns, cells: prevCells, rows: 0, anchored: false } } : current;
-    plan = {
-      ...plan,
-      changeSummary: changed ? summarizeChanges(shown, plan) : (current.changeSummary ?? emptySummary()),
-      round: changed ? Math.max(current.round ?? 0, roundSeq) + 1 : (current.round ?? 0),
-    };
-    return { plan, heldMove };
   }
 
   // ----- the anchor ------------------------------------------------------------
@@ -1436,7 +1321,7 @@ export const useEngine = create<Engine>()((set, get) => {
       goal,
       ...(client ? { client } : {}),
       label: contextLabel(goal, client),
-      plan: withGrid(s.plan),
+      plan: withGrid(s.plan, get().columns),
       bigger: [...s.bigger],
       view: structuredClone(s.view),
       links: s.links,
@@ -2093,7 +1978,7 @@ export const useEngine = create<Engine>()((set, get) => {
     const input: PolicyInput = {
       judgments: res.judgments,
       version: res.version,
-      previous: withGrid(s.plan),
+      previous: withGrid(s.plan, get().columns),
       events: s.events,
       now,
       weights: s.settings.weights,
@@ -3468,8 +3353,8 @@ export const useEngine = create<Engine>()((set, get) => {
       if (!repack) return;
       // A resize re-packs by reflow and plays no stages: an empty summary and no badges.
       const plan = s.plan;
-      const before = plan.grid ? (plan.grid.columns === columns ? plan.grid.cells : null) : reflow(plan, columns).cells;
-      const r = reflow(plan, columns);
+      const before = plan.grid ? (plan.grid.columns === columns ? plan.grid.cells : null) : reflowCells(plan, columns).cells;
+      const r = reflowCells(plan, columns);
       const moved = !before || plan.placements.some((p) => !cellsEqual(before[p.id], r.cells[p.id]));
       const next: LayoutPlan = {
         ...plan,

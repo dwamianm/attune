@@ -68,7 +68,7 @@ record that was clicked.
 | `packages/core/src/grid.ts` (was `src/engine/grid.ts`) | engine (`@attune/core`) | `packGrid`, `lockedPanels`, `summarizeChanges` (stubs today); `CELL_SPANS`, `GRID_BREAKPOINTS`, `spanOf`, `columnsForWidth`, `cellsOverlap`, `cellFits` (done) |
 | `src/engine/relations.ts` | engine | `findLinked`, `anchorLabel`, `relationFor` (stubs today); `linkWhy` (how a linked record relates, for the next step) |
 | `src/engine/linkFlow.ts` (new) | engine | the next step: the clicked record in words, the link candidates, the Next gate, the order of the linked panels, the step, and the follow-up |
-| `src/engine/policy.ts` | engine | anchored-round rules, link boost, relations on placements |
+| `packages/core/src/createPolicy.ts` (was in `src/engine/policy.ts`) | engine (`@attune/core`) | anchored-round rules, link boost, relations on placements; the demo binds it in `src/engine/policy.ts` |
 | `src/engine/store.ts` | engine | anchor lifecycle, link set lifecycle, pointer holds, the place step (pack, round, summary) |
 | `src/ui/domHooks.ts` | UI | attribute names and selectors (done) |
 | `packages/core/src/choreography.ts` (was `src/ui/choreography.ts`) | UI (`@attune/core`) | stage timing constants |

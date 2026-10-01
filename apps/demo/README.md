@@ -249,8 +249,9 @@ handle first when the Noul is at 0.6 or more.
 All thresholds are named constants at the top of each file, so they can be read
 and tuned in one place.
 
-`src/engine/policy.ts`, with the blend, mode, density, help, and in-use
-rules in `@attune/core` (`packages/core/src/policy.ts`):
+`createPolicy` in `@attune/core` (`packages/core/src/createPolicy.ts`, and
+the blend, mode, density, help, and in-use rules in `policy.ts` there),
+bound to the demo in `src/engine/policy.ts`:
 
 - **Priority** = relevance x 0.5 + recent use x 0.25 + goal affinity x 0.25
   (weights are adjustable in the Inspector), plus 1 for a pinned panel, plus,
@@ -889,7 +890,9 @@ judgment and snapshot types, the grid packer, the request scheduler, recent
 use, the quiet rule, the relayout timing, the row fit under the command bar,
 and the plain-word helpers (`@attune/core`); the core Jev questions, the
 answer readers, the real-time client, and the round with a budget and the
-heuristic as its fallback (`@attune/jev`). The demo's `src/engine/usage.ts`, `src/engine/quiet.ts`,
+heuristic as its fallback (`@attune/jev`). The layout policy is
+`createPolicy` and the place step `placePlan` (`@attune/core`), bound to the
+demo in `src/engine/policy.ts` and `src/engine/store.ts`. The demo's `src/engine/usage.ts`, `src/engine/quiet.ts`,
 and `src/ui/choreography.ts` bind them to its catalog and events; the generic React hooks
 (`@attune/react`); the request guard and rate limiter (`@attune/server`).
 

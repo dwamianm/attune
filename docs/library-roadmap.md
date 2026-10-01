@@ -23,6 +23,11 @@ In `packages/` (generic, tested, used by the demo):
 | `rowFit.ts` | `@attune/core` | Fits a row of cards on one line: full, compact pill, or "+N". The app decides the cards and their order. |
 | `scheduler.ts` | `@attune/core` | `AdaptScheduler`: debounce, max wait, one request in flight, commands first. The app decides which events are triggers. |
 | `words.ts` | `@attune/core` | Numbers and ids as plain words, for the model and for people. |
+| `plan.ts` | `@attune/core` | The layout plan and its parts (`LayoutPlan`, `PanelPlacement`, `AnchorRef`, `PanelRelation`, `CoreSuggestion`), generic over the panel ids, the suggestion type, and the record kinds. |
+| `createPolicy.ts` | `@attune/core` | The whole policy round, bound to an app once: `computePlan` (membership, docking with its band, order with hysteresis, sizes, anchors and links, quiet panels, the decisions in words) and the plan edits (a command's hero, pins, "Make bigger", undo marks). The app gives its suggestions, link words, help panel, and habit words. |
+| `place.ts` | `@attune/core` | The place step: `placePlan` packs explicit cells with the anchor held still, keeps the pointer's card from moving, and counts the rounds. |
+| `adaptiveStore.ts` | `@attune/core` | `createAdaptiveStore`: the adaptive loop in one framework-free store (event log, scheduler, request and answer, policy, place step, the anchor, pointer and canvas holds, the minimum change interval, undo, commands). Tested with a small writing app; the demo does not use it yet (step 6d). |
+| `useAdaptive.ts` | `@attune/react` | `useAdaptive(store, selector)`: read an adaptive store (or any store with `getState` and `subscribe`) from React. |
 | `judgments.ts` | `@attune/core` | The typed answers the layout code reads: `ChoiceJudgment`, `ScoreJudgment`, `CoreJudgments`, `CoreCommandJudgments`. |
 | `signals.ts` | `@attune/core` | The core signal vocabulary (`CoreSignalType`: focus, open, dismiss, pin, dwell, item open, search, filter, action, command, shortcut, scroll, suggestions, undo, resize) and `SignalProfile`, which says how an app's own types count: as record opens, work, pointer use, or cue-only. |
 | `snapshot.ts` | `@attune/core` | Events into the words-only `InteractionSnapshot`: the sentences for the core types, the behavior observations and their thresholds, collapsing repeats, the focus fallback. The app gives its words (panel titles, record kinds, its actions in the past tense) and its own sentences. |
@@ -44,8 +49,9 @@ the old path that binds it once: `src/engine/usage.ts` (the demo's event
 weights and `CATALOG.panelIds`), `src/engine/quiet.ts` (`isQuietTouch`, the
 panel ids, and the goal labels), and `src/ui/choreography.ts` (panel titles), `src/engine/snapshot.ts` (the
 demo's signal profile, words, its own event sentences, and what its focused
-panel shows), and `src/engine/policy.ts` (`scorePanels` with the demo's
-recent use and habit weight; `computePlan` itself is still the demo's).
+panel shows), and `src/engine/policy.ts` (`createPolicy` with the demo's
+suggestions, link words, Guide, habit words, and engine notes). The demo's
+`src/engine/store.ts` calls `placePlan` for its place step.
 An adapter holds only that binding and types narrowed to the demo's ids.
 
 ## The main blocker: the catalog is a module, not configuration
@@ -111,17 +117,35 @@ Each step keeps `pnpm test` green and the demo working.
    of record kinds in words (`ITEM_WORDS` in `src/engine/snapshot.ts` and
    `RECORD_KIND_WORDS` in `server/questions.ts`); they could become one
    catalog field.
-6. **The store.** `store.ts` (3,700 lines) ties everything together with
-   zustand. Make a `createAdaptiveStore(config)` in the library, and keep
-   the demo's actions (send reminder, resend invoice) in the demo.
+6. **The store.** Done in three parts; a fourth is next.
+   6a: the plan types and the whole policy round are in `@attune/core`
+   (`createPolicy`), with the demo's suggestions and words as hooks.
+   6b: the place step is `placePlan` in `@attune/core`; the demo's store
+   calls it. 6c: `createAdaptiveStore` in `@attune/core` runs the whole
+   loop for an app, and `useAdaptive` in `@attune/react` reads it. Dumps of
+   the demo store over every scenario and eight seeded random sessions
+   (pointer moves, pins, resizes, commands, undo, column changes), and the
+   policy over four rounds of 20 scenarios with every plan edit, were byte
+   for byte the same before and after.
+6d. **The demo on the library store.** The demo still runs its own store
+   (`apps/demo/src/engine/store.ts`), built from the library's parts, because
+   its focus aids hook into the loop in many places: Up next and Back to,
+   the Done card, habits, meeting prep, the link cues that outlive the
+   anchor, the quiet rule, the front group, saved settings, the metrics, and
+   the command view patches. Moving it onto `createAdaptiveStore` needs
+   extension hooks in the store (on track, before a request, on an answer,
+   extra policy input, after the plan, commit gates) and extra state for each
+   aid. Until then the two loops share every pure part but not the loop
+   itself, so a fix to one must be checked in the other.
 7. **React components.** `Canvas`, `PanelFrame`, `Dock`, `ChangeFeed`, and
    `LinkLines` into `@attune/react`, with a panel registry (panel id to
    component). Tailwind v4 only scans the app by default, so the demo's CSS
    then needs `@source "../../../packages/react/src";` for the classes in
    the library components.
 8. **A second app.** `apps/playground` (or similar) with three or four
-   panels of its own, built only from the packages. Anything it cannot do
-   without copying demo code shows what is still missing.
+   panels of its own, built only from the packages, on
+   `createAdaptiveStore` and `useAdaptive`. Anything it cannot do without
+   copying demo code shows what is still missing.
 9. **Publish.** A build per package (for example tsdown) that emits
    JavaScript and `.d.ts` into `dist/`, `exports` that point there,
    versioning (for example changesets), a license, and an npm scope. This

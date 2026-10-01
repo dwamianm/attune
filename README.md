@@ -11,14 +11,15 @@ that proves it out lives in `apps/demo`.
 
 ```
 packages/
-  core/     @attune/core    Framework-free: the catalog type and its check, the signal
-                            vocabulary, the snapshot in words, the general layout
-                            rules, the layout modes, the anchored grid packer, the
-                            request scheduler, recent use, the quiet rule, the staged
-                            relayout timing, the row fit, plain-word helpers.
-                            No DOM, no React, no network.
-  react/    @attune/react   React bindings. Today: generic hooks (keyboard, sizes,
-                            roving lists, popovers).
+  core/     @attune/core    Framework-free: createAdaptiveStore (the whole loop), the
+                            catalog type and its check, the signal vocabulary, the
+                            snapshot in words, the layout policy (createPolicy) and
+                            its rules, the place step, the layout modes, the anchored
+                            grid packer, the request scheduler, recent use, the quiet
+                            rule, the staged relayout timing, the row fit, plain-word
+                            helpers. No DOM, no React, no network.
+  react/    @attune/react   React bindings: useAdaptive (read an adaptive store), and
+                            generic hooks (keyboard, sizes, roving lists, popovers).
   jev/      @attune/jev     The Jev question layer: the core questions built from the
                             catalog, readers that turn answers into typed judgments,
                             and one round with a time budget and the app's fallback.
@@ -80,6 +81,11 @@ and run `pnpm test` or `pnpm typecheck`.
   they count in a `SignalProfile` (as record opens, work, pointer use, or
   cue-only), or passes a small function where a rule needs more, such as the
   weight of an event for recent use.
+- **The library store first, the demo later.** `createAdaptiveStore` was
+  built in the library and tested with a small writing app before the demo
+  moved onto it, because the demo's focus aids hook into its loop in many
+  places. The demo shares every pure part with it but runs its own loop
+  until step 6d (docs/library-roadmap.md).
 - **Adapters bind once.** Where the demo needs a library function with its
   own vocabulary, a small demo file binds it (see "How the demo uses a moved
   module" in docs/library-roadmap.md). Everything else imports from the
