@@ -7,7 +7,7 @@ import { CLIENT_NAMES } from "../shared/fixtures.ts";
 import type { AdaptRequest, PrepRequest } from "../shared/types.ts";
 
 const client = { current: null as unknown };
-vi.mock("./jev.ts", () => ({ JEV_TIMEOUT_MS: 4000, getJevClient: () => client.current }));
+vi.mock("./jev.ts", () => ({ getJevClient: () => client.current }));
 
 const { adapt, prep, ADAPT_BUDGET_MS } = await import("./adapt.ts");
 const { ADAPT_TIMEOUT_MS } = await import("../src/engine/api.ts");

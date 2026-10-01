@@ -18,7 +18,8 @@ packages/
   react/    @attune/react   React bindings. Today: generic hooks (keyboard, sizes,
                             roving lists, popovers).
   jev/      @attune/jev     The Jev question layer: the core questions built from the
-                            catalog, and readers that turn answers into typed judgments.
+                            catalog, readers that turn answers into typed judgments,
+                            and one round with a time budget and the app's fallback.
   server/   @attune/server  For the server that holds the model key: request guard
                             (loopback or CDN edge) and a rate limiter.
 apps/

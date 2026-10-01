@@ -25,6 +25,7 @@ In `packages/` (generic, tested, used by the demo):
 | `words.ts` | `@attune/core` | Numbers and ids as plain words, for the model and for people. |
 | `judgments.ts`, `snapshot.ts` | `@attune/core` | The typed answers the layout code reads (`ChoiceJudgment`, `ScoreJudgment`, `CoreJudgments`, `CoreCommandJudgments`) and the words-only `InteractionSnapshot`, with the one command activity line both sides must agree on. |
 | `questions.ts` | `@attune/jev` | The core Jev questions and state, built from the catalog: goal, relevance per panel, struggling, layout, expertise, next action, and with a command the panel and action. |
+| `ask.ts`, `client.ts` | `@attune/jev` | `askJev`: one round with a total budget that always answers, using the app's fallback on any failure and logging one line. `createRealtimeJevClient`: a 4 s attempt timeout and one quick retry. |
 | `answers.ts`, `normalize.ts` | `@attune/jev` | The readers that check each answer against the question sent and the catalog, and turn it into typed judgments. |
 | `hooks.ts` | `@attune/react` | Keyboard, debounce, throttle, clock, element size, roving lists, popovers. |
 | `guard.ts` | `@attune/server` | Loopback and CDN-edge request checks, rate limiter. |
@@ -82,10 +83,13 @@ Each step keeps `pnpm test` green and the demo working.
    Left as is: the expertise levels still say "opening the guide", and the
    command panel's no-match examples are fixed English. Both are fine for
    the demo; a second app may need them to be options.
-4. **The Jev call.** `server/adapt.ts` and `server/jev.ts`: one request,
-   a total time budget, one short retry, and a fallback answer on any
-   failure. Make the fallback a function the app passes (the demo passes its
-   heuristic).
+4. **The Jev call.** Done. `askJev` sends one request with a total time
+   budget and answers with the app's fallback on any failure (the demo
+   passes its heuristic, named "heuristic", so its responses and log lines
+   read as before). `createRealtimeJevClient` holds the client tuning. The
+   demo's `server/adapt.ts` and `server/jev.ts` are now short bindings. The
+   timeout message reads the attempt timeout from the SDK error instead of
+   a copied constant.
 5. **Snapshot and policy.** `snapshot.ts` (events into sentences) and
    `policy.ts` (blend relevance, use, and goal affinity; hysteresis;
    anchors) are the core of the library and the largest step. Split the

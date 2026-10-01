@@ -159,9 +159,10 @@ UI signals            clicks, searches, filters, pointer rests, shortcuts, comma
    is set; the command-bar line for that same command is not repeated as
    `latest_activity`) and asks every question in one `systemOne` call, so they
    run in parallel. Typical latency is about 150 to 350 ms. adapt() gives Jev
-   4.5 s in total, retry included, and a server `Retry-After` longer than
-   300 ms falls back to the short backoff, so the heuristic answer always
-   arrives inside the browser's 6 s timeout.
+   4.5 s in total, retry included (`askJev` in `@attune/jev`), and a server
+   `Retry-After` longer than 300 ms falls back to the short backoff
+   (`createRealtimeJevClient`), so the heuristic answer always arrives
+   inside the browser's 6 s timeout.
 5. **Typed judgments.** Answers are checked against the questions actually
    sent (Choice options must match; Score levels must match). Any failure falls
    back to the heuristic in `server/heuristic.ts`, with the reason in
@@ -884,8 +885,9 @@ From the library (`packages/`): the catalog check (`CATALOG` in
 `shared/catalog.ts` goes through `defineCatalog`), the layout modes, the
 judgment and snapshot types, the grid packer, the request scheduler, recent
 use, the quiet rule, the relayout timing, the row fit under the command bar,
-and the plain-word helpers (`@attune/core`); the core Jev questions and the
-answer readers (`@attune/jev`). The demo's `src/engine/usage.ts`, `src/engine/quiet.ts`,
+and the plain-word helpers (`@attune/core`); the core Jev questions, the
+answer readers, the real-time client, and the round with a budget and the
+heuristic as its fallback (`@attune/jev`). The demo's `src/engine/usage.ts`, `src/engine/quiet.ts`,
 and `src/ui/choreography.ts` bind them to its catalog and events; the generic React hooks
 (`@attune/react`); the request guard and rate limiter (`@attune/server`).
 

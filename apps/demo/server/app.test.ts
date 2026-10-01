@@ -6,7 +6,7 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("./jev.ts", () => ({ JEV_TIMEOUT_MS: 4000, getJevClient: () => null }));
+vi.mock("./jev.ts", () => ({ getJevClient: () => null }));
 
 const { createApp, PREP_RATE_MAX, PREP_RATE_WINDOW_MS } = await import("./app.ts");
 

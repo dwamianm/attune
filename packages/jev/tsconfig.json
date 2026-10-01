@@ -1,4 +1,8 @@
 {
   "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // Server-side: askJev uses Node's performance clock and AbortSignal.any.
+    "types": ["node"]
+  },
   "include": ["src", "vitest.config.ts"]
 }
