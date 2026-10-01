@@ -1,0 +1,30 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Attune prototype: the TLS certificate for the site. CloudFront only reads
+  certificates from us-east-1, so this stack lives there, apart from the main
+  stack (template.yaml) in us-west-1. ACM validates it with DNS records that
+  CloudFormation writes into the domain's Route 53 hosted zone.
+
+Parameters:
+  DomainName:
+    Type: String
+  HostedZoneId:
+    Type: AWS::Route53::HostedZone::Id
+
+Resources:
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      SubjectAlternativeNames:
+        - !Sub "www.${DomainName}"
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZoneId
+        - DomainName: !Sub "www.${DomainName}"
+          HostedZoneId: !Ref HostedZoneId
+
+Outputs:
+  CertificateArn:
+    Value: !Ref Certificate
