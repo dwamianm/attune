@@ -74,7 +74,17 @@ import {
   taskDoneOn,
   upNextOn,
 } from "./focusAids.ts";
-import { AdaptScheduler, emptySummary, packGrid, type SendArgs, shownQuiet, summarizeChanges, touchQuiet } from "@attune/core";
+import {
+  AdaptScheduler,
+  emptySummary,
+  judgedDensity,
+  packGrid,
+  type SendArgs,
+  shownQuiet,
+  SIZE_RANK,
+  summarizeChanges,
+  touchQuiet,
+} from "@attune/core";
 import {
   clearSavedHabits,
   emptyHabits,
@@ -120,12 +130,10 @@ import {
   computePlan,
   editPlan,
   isPanelId,
-  judgedDensity,
   markChanges,
   planSignature,
   remarkPanels,
   restoredSize,
-  SIZE_RANK,
   suggestionRecord,
   traditionalPlan,
   withoutQuiet,
@@ -1315,7 +1323,7 @@ export const useEngine = create<Engine>()((set, get) => {
     if (announce && taskDone) doneSeen.set(taskDone.goal, { acked: false });
     set({ upNext: pick, upNextDone: done, queueMode: queue, metrics, taskDone });
     if (announce && taskDone) {
-      // The engine's own note: left out of the snapshot (CUE_ONLY_TYPES), no recent use, never a request.
+      // The engine's own note: left out of the snapshot (SIGNAL_PROFILE.cueOnly in snapshot.ts), no recent use, never a request.
       trackInternal(
         { type: "task_done", detail: { label: GOALS[taskDone.goal].label, ...(taskDone.next ? { task: taskDone.next.words } : {}) } },
         { schedule: false, anchor: false },
@@ -1440,7 +1448,7 @@ export const useEngine = create<Engine>()((set, get) => {
     // With the "Back to" focus aid off nothing is saved; the working goal is still followed, so turning it on works at once.
     if (!backToOn(get().settings)) return;
     set({ contexts: addContext(get().contexts, ctx) });
-    // The engine's own note: left out of the snapshot (CUE_ONLY_TYPES), no recent use, never a request.
+    // The engine's own note: left out of the snapshot (SIGNAL_PROFILE.cueOnly in snapshot.ts), no recent use, never a request.
     trackInternal({ type: "context_save", detail: { label: ctx.label } }, { schedule: false, anchor: false });
   }
 
@@ -1676,7 +1684,7 @@ export const useEngine = create<Engine>()((set, get) => {
     setPrep(prepStateFor(meeting, "offer"));
     if (!prepOffered.has(meeting.id)) {
       prepOffered.add(meeting.id);
-      // The engine's own note: left out of the snapshot (CUE_ONLY_TYPES), no recent use, never a request.
+      // The engine's own note: left out of the snapshot (SIGNAL_PROFILE.cueOnly in snapshot.ts), no recent use, never a request.
       trackInternal(
         { type: "prep_offer", detail: { itemKind: "event", itemId: meeting.id, ...(meeting.client ? { client: meeting.client } : {}), label: eventLabel(meeting, now) } },
         { schedule: false, anchor: false },
@@ -3218,7 +3226,7 @@ export const useEngine = create<Engine>()((set, get) => {
       const prev = get().settings.focusAids;
       if (!(id in prev) || prev[id] === on) return;
       get().setSettings({ focusAids: { ...prev, [id]: on } });
-      // Logged for the inspector: not a trigger, no recent use, and left out of the snapshot (CUE_ONLY_TYPES).
+      // Logged for the inspector: not a trigger, no recent use, and left out of the snapshot (SIGNAL_PROFILE.cueOnly in snapshot.ts).
       trackInternal(
         { type: "setting_change", detail: { setting: id, enabled: on, label: FOCUS_AID_TEXT[id].label, ...(via ? { via } : {}) } },
         { schedule: false, anchor: false },

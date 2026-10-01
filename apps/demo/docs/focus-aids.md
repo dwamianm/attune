@@ -58,7 +58,7 @@ Both call `setFocusAid(id, on, via)`. Each change is logged as a
 `detail.label`), for example `Turned off "Up next"`. It shows in the
 inspector's Signals tab, is not a trigger, adds no recent use, is not
 counted as work in the Metrics tab, and is left out of the snapshot Jev
-reads (`CUE_ONLY_TYPES` in `src/engine/snapshot.ts`, the same way
+reads (the cue-only types in `SIGNAL_PROFILE`, `src/engine/snapshot.ts`, the same way
 `links_dismiss` is), so it never asks Jev and never changes a Jev answer.
 
 ### How a new aid plugs in
@@ -558,7 +558,7 @@ second announcement.
 
 - `task_done` (engine-made): "Said "Collecting payments" is done, and
   offered the next task: four unread client messages". Left out of the
-  snapshot (`CUE_ONLY_TYPES`), not a trigger, no recent use, not the
+  snapshot (`SIGNAL_PROFILE.cueOnly`), not a trigger, no recent use, not the
   user's work in the Metrics tab.
 - `task_start` (user): "Started the next task: four unread client
   messages, and opened message "Re: Invoice INV-1042" from Priya Nair at
@@ -662,7 +662,7 @@ and one switch turns it all off.
 | What did the user do, and does it teach a habit? | Code, from tracked events as they happen | `habitStep` in `src/engine/habits.ts`, called from `trackInternal` in `src/engine/store.ts` |
 | Is it a habit yet? | Code: decayed counts and an evidence bar | `isHabit`, `nextPanels`, `nextGoals`, `actionsAfter` |
 | Where will the user likely go next? | Code: the learned chance per panel | `habitHints` |
-| How much does it move a panel? | Code: the habit weight, on top of the blend | `scorePanels` in `src/engine/policy.ts` |
+| How much does it move a panel? | Code: the habit weight, on top of the blend | `scorePanels` in `@attune/core`, called by the demo's `scorePanels` in `src/engine/policy.ts` with the habit weight |
 | What will the user likely do next? | Jev, as before; the habit only when Jev is unsure | `buildSuggestions` |
 | What does Jev read about it? | At most two habits, in words | `habitObservations`, `SnapshotContext.habits` |
 
@@ -1094,7 +1094,7 @@ still scores 0.85 to 0.89, above the tint line (see Known limits).
 ### Signals and metrics
 
 - `prep_offer` (engine-made): "Offered to prepare for Harbor rebrand
-  review, 11:00 today". Left out of the snapshot (`CUE_ONLY_TYPES`), not a
+  review, 11:00 today". Left out of the snapshot (`SIGNAL_PROFILE.cueOnly`), not a
   trigger, no recent use, not counted toward density, not the user's work
   in the Metrics tab.
 - `prep_start` (user): "Started preparing for calendar event Harbor rebrand

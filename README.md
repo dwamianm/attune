@@ -11,10 +11,12 @@ that proves it out lives in `apps/demo`.
 
 ```
 packages/
-  core/     @attune/core    Framework-free: the catalog type and its check, the layout
-                            modes, the anchored grid packer, the request scheduler,
-                            recent use, the quiet rule, the staged relayout timing,
-                            the row fit, plain-word helpers. No DOM, no React, no network.
+  core/     @attune/core    Framework-free: the catalog type and its check, the signal
+                            vocabulary, the snapshot in words, the general layout
+                            rules, the layout modes, the anchored grid packer, the
+                            request scheduler, recent use, the quiet rule, the staged
+                            relayout timing, the row fit, plain-word helpers.
+                            No DOM, no React, no network.
   react/    @attune/react   React bindings. Today: generic hooks (keyboard, sizes,
                             roving lists, popovers).
   jev/      @attune/jev     The Jev question layer: the core questions built from the
@@ -73,10 +75,11 @@ and run `pnpm test` or `pnpm typecheck`.
   package.json takes it with `"catalog:"`.
 - **Tests move with code.** A module that moves into a package takes its
   tests with it. App-specific cases stay in the app.
-- **The app says what its events mean.** The library does not know an app's
-  event types. Where a rule reads events, the app passes a small function,
-  such as the weight of an event for recent use, or whether an event counts
-  as use for the quiet rule.
+- **The app says what its events mean.** The library knows only the core
+  signal types (`CoreSignalType`). An app adds its own types and says how
+  they count in a `SignalProfile` (as record opens, work, pointer use, or
+  cue-only), or passes a small function where a rule needs more, such as the
+  weight of an event for recent use.
 - **Adapters bind once.** Where the demo needs a library function with its
   own vocabulary, a small demo file binds it (see "How the demo uses a moved
   module" in docs/library-roadmap.md). Everything else imports from the

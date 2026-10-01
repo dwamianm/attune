@@ -50,9 +50,8 @@ import { useShallow } from "zustand/react/shallow";
 import { PANELS, type PanelId } from "../../shared/catalog.ts";
 import type { GridCell, PanelPlacement, PanelRelation, PanelSize } from "../../shared/types.ts";
 import { moveToFrontOn } from "../engine/focusAids.ts";
-import { SIZE_RANK } from "../engine/policy.ts";
-import { useEngine } from "../engine/store.ts";
 import {
+  type CardCue,
   ENTER_OFFSET_PX,
   ENTER_SCALE,
   QUIET_FADE_MS,
@@ -60,11 +59,12 @@ import {
   QUIET_OPACITY,
   QUIET_SATURATE,
   REDUCED_FADE_MS,
+  SIZE_RANK,
   STAGE_EXIT,
   STAGE_MOVE,
   stageTransition,
-  type CardCue,
 } from "@attune/core";
+import { useEngine } from "../engine/store.ts";
 import { ANCHOR_ATTR, dockIconSelector, FRONT_RING_ATTR, LINK_ATTR, LINK_NEXT_ATTR, LINK_REMOVE_ATTR, LINK_TAG_ATTR, PANEL_ATTR, PANEL_HEADER_ATTR, QUIET_ATTR } from "./domHooks.ts";
 import { useThrottleGate, useWindowKeydown } from "@attune/react";
 import { panelIcon } from "./icons.ts";

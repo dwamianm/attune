@@ -11,9 +11,14 @@
  * final layout are decided in client code (src/engine/policy.ts).
  */
 import type {
+  BlendWeights,
   ChangeSummary as LibChangeSummary,
   ChoiceJudgment,
   CoreCommandJudgments,
+  CoreSignalType,
+  Decision as LibDecision,
+  Density,
+  HelpLevel,
   CoreJudgments,
   GridCell,
   GridColumns,
@@ -23,32 +28,21 @@ import type {
 } from "@attune/core";
 import type { ActionId, GoalId, LayoutMode, PanelId } from "./catalog.ts";
 
-export type { ChoiceJudgment, GridCell, GridColumns, InteractionSnapshot, PanelSize, ScoreJudgment } from "@attune/core";
+export type { ChoiceJudgment, Density, GridCell, GridColumns, HelpLevel, InteractionSnapshot, PanelSize, ScoreJudgment } from "@attune/core";
 
 // ---------------------------------------------------------------------------
 // Signals captured in the browser
 // ---------------------------------------------------------------------------
 
+/**
+ * The core signal types (CoreSignalType in @attune/core: panel focus, open,
+ * dismiss, pin, unpin, dwell, maximize, restore, item open, search, filter,
+ * action, command, shortcut, scroll, suggestion accept and dismiss, undo),
+ * plus the demo's own.
+ */
 export type SignalType =
-  | "panel_focus" // user clicked or typed inside a panel
-  | "panel_open" // panel brought onto the canvas from the dock
-  | "panel_dismiss" // panel sent to the dock by the user
-  | "panel_pin"
-  | "panel_unpin"
-  | "panel_dwell" // pointer rested on a panel (detail.durationMs)
-  | "item_open" // opened one record (invoice, message, client, ...)
-  | "search" // typed a search inside a panel (detail.query)
-  | "filter" // changed a filter (detail.filter)
-  | "action" // performed an action (detail.actionId)
-  | "command" // typed into the command bar (detail.query)
-  | "shortcut" // used a keyboard shortcut (detail.key)
-  | "scroll" // scrolled a panel list
-  | "suggestion_accept"
-  | "suggestion_dismiss"
-  | "undo"
+  | CoreSignalType
   | "links_dismiss" // cleared the link cues, or removed one (detail.linkedPanel); logged for the inspector, never read by Jev
-  | "panel_maximize" // made a panel bigger with its "Make bigger" button (or a double-click on its title); never asks Jev by itself
-  | "panel_restore" // made a panel the user had made bigger smaller again; never asks Jev by itself
   | "up_next_open" // opened the record offered in the "Up next" card (detail.itemId, detail.via)
   | "context_save" // the engine saved the previous working context because the goal changed (detail.label)
   | "context_restore" // the user went "Back to" a saved working context (detail.label)
@@ -472,16 +466,8 @@ export interface Suggestion {
   meetingNotes?: { eventId: string; heading: string };
 }
 
-export interface Decision {
-  kind: "mode" | "promote" | "demote" | "add" | "dock" | "suggest" | "help" | "hold" | "command" | "density";
-  panel?: PanelId;
-  /** Plain sentence for the change feed, for example "Moved Invoices to the front". */
-  text: string;
-  /** The judgment behind it, for example "goal collect_payments p=0.91". */
-  evidence?: string;
-}
-
-export type Density = "guided" | "standard" | "dense";
+/** One change the policy made or held back, in words (Decision in @attune/core), for the demo's panels. */
+export type Decision = LibDecision<PanelId>;
 
 export interface LayoutPlan {
   mode: LayoutMode;
@@ -491,7 +477,7 @@ export interface LayoutPlan {
   docked: PanelId[];
   density: Density;
   suggestions: Suggestion[];
-  help: "none" | "hint" | "panel";
+  help: HelpLevel;
   /** What changed versus the previous plan, and why. */
   decisions: Decision[];
   /** Version of the AdaptResponse this plan came from, 0 for the default plan. */
@@ -512,13 +498,8 @@ export interface LayoutPlan {
   grid?: PlanGrid;
 }
 
-export interface PolicyWeights {
-  /** Weight on Jev's per-panel relevance Score. */
-  relevance: number;
-  /** Weight on code-measured recent use (decayed interaction counts). */
-  usage: number;
-  /** Weight on the hand-written goal-to-panel affinity, weighted by Jev's goal probabilities. */
-  goal: number;
+/** The blend's weights (BlendWeights in @attune/core: relevance, usage, goal), plus the habit weight. */
+export interface PolicyWeights extends BlendWeights {
   /**
    * Focus aid 3, "Learn my habits" (docs/focus-aids.md): weight on the
    * learned chance that the user goes to a panel next. Added on top of the

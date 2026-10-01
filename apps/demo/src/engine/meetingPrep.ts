@@ -18,9 +18,9 @@ import type { AnchorRef, ItemKind, LayoutPlan, PanelPlacement, PanelRelation, Pr
 import { clockTime, dayOffset, daysUntil, formatMoney, invoiceDueText, PROJECT_STATUS_LABEL, projectDeadlineText, taskDueText } from "../ui/format.ts";
 import type { AppData, PanelViewState, PrepRanking } from "./contract.ts";
 import { recordKey, type RevealPatch } from "./nextUp.ts";
-import { LINKED_MIN_SIZE, SIZE_RANK, withoutQuiet } from "./policy.ts";
+import { matchesQuery, SIZE_RANK } from "@attune/core";
+import { LINKED_MIN_SIZE, withoutQuiet } from "./policy.ts";
 import { invoiceIdsIn } from "./relations.ts";
-import { matchesQuery } from "@attune/core";
 
 // ---------------------------------------------------------------------------
 // Constants. Demo defaults; tune them here.

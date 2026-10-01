@@ -125,10 +125,10 @@ up the client's records next to the meeting.
 ```
 UI signals            clicks, searches, filters, pointer rests, shortcuts, commands
   -> event log        src/engine/store.ts (track)
-  -> snapshot         src/engine/snapshot.ts: recent activity and behavior facts, in words
+  -> snapshot         src/engine/snapshot.ts (rules in @attune/core): recent activity and behavior facts, in words
   -> one Jev request  server/questions.ts (core questions from @attune/jev): small state, 16 questions, plus 2 with record candidates, 1 with the working goal, 1 with task candidates, 2 with a clicked record, and 5 with a command
   -> judgments        server/normalize.ts (core readers from @attune/jev): typed Choice, Score, and Noul answers
-  -> policy           src/engine/policy.ts: weights, thresholds, hysteresis
+  -> policy           src/engine/policy.ts (general rules in @attune/core): weights, thresholds, hysteresis
   -> layout plan      mode, ordered placements with sizes, dock, suggestions, help
   -> place step       @attune/core packGrid: explicit grid cells, the clicked panel held still
   -> animated canvas  src/ui/Canvas.tsx and PanelFrame.tsx (staged motion layout animations)
@@ -249,7 +249,8 @@ handle first when the Noul is at 0.6 or more.
 All thresholds are named constants at the top of each file, so they can be read
 and tuned in one place.
 
-`src/engine/policy.ts`:
+`src/engine/policy.ts`, with the blend, mode, density, help, and in-use
+rules in `@attune/core` (`packages/core/src/policy.ts`):
 
 - **Priority** = relevance x 0.5 + recent use x 0.25 + goal affinity x 0.25
   (weights are adjustable in the Inspector), plus 1 for a pinned panel, plus,
@@ -331,8 +332,9 @@ and tuned in one place.
 Other thresholds: `src/engine/command.ts` (apply a command at panel confidence
 0.6, ask at 0.35, set a filter at 0.55, suggest its action at 0.55, lower than
 the 0.7 for passive steps because the user typed the request),
-`AdaptScheduler` in `@attune/core` (debounce and gaps), `src/engine/snapshot.ts`
-(what counts as a burst, a quick dismissal, a reopened record, idle), and
+`AdaptScheduler` in `@attune/core` (debounce and gaps), the snapshot rules in
+`@attune/core` (`packages/core/src/snapshot.ts`: what counts as a burst, a
+quick dismissal, a reopened record, idle), and
 `src/engine/usage.ts` (what each event counts; `panelUsage` in `@attune/core`
 fades recent use with a 90 s half-life). Pointer rests
 are timed from the first real pointer movement in a card and capped at 15 s, so

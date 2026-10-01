@@ -23,7 +23,10 @@ In `packages/` (generic, tested, used by the demo):
 | `rowFit.ts` | `@attune/core` | Fits a row of cards on one line: full, compact pill, or "+N". The app decides the cards and their order. |
 | `scheduler.ts` | `@attune/core` | `AdaptScheduler`: debounce, max wait, one request in flight, commands first. The app decides which events are triggers. |
 | `words.ts` | `@attune/core` | Numbers and ids as plain words, for the model and for people. |
-| `judgments.ts`, `snapshot.ts` | `@attune/core` | The typed answers the layout code reads (`ChoiceJudgment`, `ScoreJudgment`, `CoreJudgments`, `CoreCommandJudgments`) and the words-only `InteractionSnapshot`, with the one command activity line both sides must agree on. |
+| `judgments.ts` | `@attune/core` | The typed answers the layout code reads: `ChoiceJudgment`, `ScoreJudgment`, `CoreJudgments`, `CoreCommandJudgments`. |
+| `signals.ts` | `@attune/core` | The core signal vocabulary (`CoreSignalType`: focus, open, dismiss, pin, dwell, item open, search, filter, action, command, shortcut, scroll, suggestions, undo, resize) and `SignalProfile`, which says how an app's own types count: as record opens, work, pointer use, or cue-only. |
+| `snapshot.ts` | `@attune/core` | Events into the words-only `InteractionSnapshot`: the sentences for the core types, the behavior observations and their thresholds, collapsing repeats, the focus fallback. The app gives its words (panel titles, record kinds, its actions in the past tense) and its own sentences. |
+| `policy.ts` | `@attune/core` | The general layout rules: the priority blend (`scorePanels`), the mode and density changes with their hysteresis, the help level, and the panels in use that must not move away or shrink, with their thresholds and the slot sizes. |
 | `questions.ts` | `@attune/jev` | The core Jev questions and state, built from the catalog: goal, relevance per panel, struggling, layout, expertise, next action, and with a command the panel and action. |
 | `ask.ts`, `client.ts` | `@attune/jev` | `askJev`: one round with a total budget that always answers, using the app's fallback on any failure and logging one line. `createRealtimeJevClient`: a 4 s attempt timeout and one quick retry. |
 | `answers.ts`, `normalize.ts` | `@attune/jev` | The readers that check each answer against the question sent and the catalog, and turn it into typed judgments. |
@@ -39,7 +42,10 @@ Demo files import general names straight from `@attune/core`. Where a
 library function needs the app's vocabulary, the demo has a small adapter at
 the old path that binds it once: `src/engine/usage.ts` (the demo's event
 weights and `CATALOG.panelIds`), `src/engine/quiet.ts` (`isQuietTouch`, the
-panel ids, and the goal labels), and `src/ui/choreography.ts` (panel titles).
+panel ids, and the goal labels), and `src/ui/choreography.ts` (panel titles), `src/engine/snapshot.ts` (the
+demo's signal profile, words, its own event sentences, and what its focused
+panel shows), and `src/engine/policy.ts` (`scorePanels` with the demo's
+recent use and habit weight; `computePlan` itself is still the demo's).
 An adapter holds only that binding and types narrowed to the demo's ids.
 
 ## The main blocker: the catalog is a module, not configuration
@@ -90,10 +96,21 @@ Each step keeps `pnpm test` green and the demo working.
    demo's `server/adapt.ts` and `server/jev.ts` are now short bindings. The
    timeout message reads the attempt timeout from the SDK error instead of
    a copied constant.
-5. **Snapshot and policy.** `snapshot.ts` (events into sentences) and
-   `policy.ts` (blend relevance, use, and goal affinity; hysteresis;
-   anchors) are the core of the library and the largest step. Split the
-   generic rules from the demo's record-specific ones (invoices, messages).
+5. **Snapshot and policy.** Mostly done, in two parts. 5a: the snapshot
+   rules and the core signal vocabulary are in `@attune/core`; the demo
+   keeps its own event types and sentences. 5b: the general policy rules
+   (the blend, mode, density, help, panels in use) are in `@attune/core`.
+   Dumps of 18,792 event sentences, every snapshot of 37 event sets, and
+   four full `computePlan` rounds for 20 scenarios were byte for byte the
+   same before and after.
+   Still in the demo: `computePlan` itself (placements, docking with its
+   hysteresis, order, sizes, anchors and links), the suggestions with their
+   record arguments, and `traditionalPlan`. They read `LayoutPlan` and
+   `Suggestion`, whose fields name the demo's records, so they move with
+   step 6, once the plan has a generic part. The demo still has two tables
+   of record kinds in words (`ITEM_WORDS` in `src/engine/snapshot.ts` and
+   `RECORD_KIND_WORDS` in `server/questions.ts`); they could become one
+   catalog field.
 6. **The store.** `store.ts` (3,700 lines) ties everything together with
    zustand. Make a `createAdaptiveStore(config)` in the library, and keep
    the demo's actions (send reminder, resend invoice) in the demo.

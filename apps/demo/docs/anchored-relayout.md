@@ -142,7 +142,7 @@ every plan or anchor change.
 - **Logged.** `clearLinks` and `removeLink` log a `links_dismiss` signal
   ("Cleared the links for INV-1047", with ", using the keyboard" for Escape;
   "Removed the link to Inbox"). It is not a trigger, re-plans nothing, adds
-  no recent use, and `buildSnapshot` leaves it out (`CUE_ONLY_TYPES`), so it
+  no recent use, and `buildSnapshot` leaves it out (`SIGNAL_PROFILE.cueOnly`), so it
   cannot change a Jev request or its answers.
 - **"fade" mode** (`settings.linkLines`, persisted with the other settings):
   the older behavior. The set is the live anchor's round's relations and goes

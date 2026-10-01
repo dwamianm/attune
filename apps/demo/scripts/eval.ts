@@ -46,7 +46,7 @@ import type { AppData, PanelViewState } from "../src/engine/contract.ts";
 import { confidentLinkNext, linkRequestFor } from "../src/engine/linkFlow.ts";
 import { buildPrepRecords, PREP_TINT_AT, PREP_URGENT_AT, prepMeetingWords, prepRecordWords } from "../src/engine/meetingPrep.ts";
 import { PANEL_OF_KIND, parseRecordKey } from "../src/engine/nextUp.ts";
-import { HELP_HINT_AT } from "../src/engine/policy.ts";
+import { HELP_HINT_AT } from "@attune/core";
 import { buildSnapshot, describeEvent } from "../src/engine/snapshot.ts";
 
 /** TypeSafe price for input tokens. Output tokens are free. */
