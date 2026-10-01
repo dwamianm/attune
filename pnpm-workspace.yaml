@@ -1,0 +1,22 @@
+packages:
+  - apps/*
+  - packages/*
+
+# One version of each shared tool for every package. A package.json takes the
+# version from here with "catalog:", so the apps and the library never drift.
+catalog:
+  "@types/node": ^26.6.3
+  "@types/react": ^19.3.0
+  "@types/react-dom": ^19.3.0
+  react: ^19.3.0
+  react-dom: ^19.3.0
+  typescript: ^7.0.2
+  vitest: ^5.0.2
+
+# motion's .d.ts files import "react", and pnpm does not link @types/react
+# next to motion. In the one-package layout the root node_modules had
+# @types/react, so TypeScript found it by walking up. Hoisting it to the root
+# keeps that working now that only the apps and packages depend on it.
+publicHoistPattern:
+  - "@types/react"
+  - "@types/react-dom"

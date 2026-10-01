@@ -1,0 +1,19 @@
+{
+  "name": "@attune/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Framework-free parts of Attune: the anchored grid packer, the request scheduler, and plain-word helpers.",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

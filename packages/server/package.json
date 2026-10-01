@@ -1,0 +1,20 @@
+{
+  "name": "@attune/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Server helpers for Attune apps that hold a model API key: request guards and a rate limiter.",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

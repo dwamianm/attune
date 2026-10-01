@@ -1,0 +1,8 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // DOM only for the timer and AbortController types. Core code never touches the document.
+    "lib": ["ES2023", "DOM"]
+  },
+  "include": ["src", "vitest.config.ts"]
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@attune/react",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "React bindings for Attune. Today: small hooks for keyboard, sizes, roving lists, and popovers.",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "react": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
