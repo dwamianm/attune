@@ -64,7 +64,7 @@ import {
   STAGE_MOVE,
   stageTransition,
   type CardCue,
-} from "./choreography.ts";
+} from "@attune/core";
 import { ANCHOR_ATTR, dockIconSelector, FRONT_RING_ATTR, LINK_ATTR, LINK_NEXT_ATTR, LINK_REMOVE_ATTR, LINK_TAG_ATTR, PANEL_ATTR, PANEL_HEADER_ATTR, QUIET_ATTR } from "./domHooks.ts";
 import { useThrottleGate, useWindowKeydown } from "@attune/react";
 import { panelIcon } from "./icons.ts";

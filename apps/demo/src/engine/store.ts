@@ -74,7 +74,7 @@ import {
   taskDoneOn,
   upNextOn,
 } from "./focusAids.ts";
-import { emptySummary, packGrid, summarizeChanges } from "@attune/core";
+import { AdaptScheduler, emptySummary, packGrid, type SendArgs, shownQuiet, summarizeChanges, touchQuiet } from "@attune/core";
 import {
   clearSavedHabits,
   emptyHabits,
@@ -132,7 +132,7 @@ import {
   type PlanEdit,
   type PolicyLiveData,
 } from "./policy.ts";
-import { countQuietRound, emptyQuietTrack, isQuietTouch, quietPanels, shownQuiet, touchQuiet, type QuietTrack } from "./quiet.ts";
+import { countQuietRound, emptyQuietTrack, isQuietTouch, quietPanels, type QuietTrack } from "./quiet.ts";
 import { anchorLabel, clientNamedIn, findLinked, kindOfId } from "./relations.ts";
 import {
   emptyMetrics,
@@ -163,7 +163,6 @@ import {
   UP_NEXT_DISMISS_MS,
   upNextKey,
 } from "./nextUp.ts";
-import { AdaptScheduler, type SendArgs } from "@attune/core";
 import { LOCAL_REPLAN_TYPES, triggersRequest } from "./scheduler.ts";
 import { WORK_TYPES, actionPast, buildSnapshot, describeEvent } from "./snapshot.ts";
 import {

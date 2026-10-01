@@ -13,7 +13,8 @@ that proves it out lives in `apps/demo`.
 packages/
   core/     @attune/core    Framework-free: the catalog type and its check, the layout
                             modes, the anchored grid packer, the request scheduler,
-                            plain-word helpers. No DOM, no React, no network.
+                            recent use, the quiet rule, the staged relayout timing,
+                            the row fit, plain-word helpers. No DOM, no React, no network.
   react/    @attune/react   React bindings. Today: generic hooks (keyboard, sizes,
                             roving lists, popovers).
   server/   @attune/server  For the server that holds the model key: request guard
@@ -69,6 +70,14 @@ and run `pnpm test` or `pnpm typecheck`.
   package.json takes it with `"catalog:"`.
 - **Tests move with code.** A module that moves into a package takes its
   tests with it. App-specific cases stay in the app.
+- **The app says what its events mean.** The library does not know an app's
+  event types. Where a rule reads events, the app passes a small function,
+  such as the weight of an event for recent use, or whether an event counts
+  as use for the quiet rule.
+- **Adapters bind once.** Where the demo needs a library function with its
+  own vocabulary, a small demo file binds it (see "How the demo uses a moved
+  module" in docs/library-roadmap.md). Everything else imports from the
+  package directly.
 
 ### Add a package
 

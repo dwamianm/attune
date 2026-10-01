@@ -17,6 +17,10 @@ In `packages/` (generic, tested, used by the demo):
 | `catalog.ts` | `@attune/core` | The `Catalog` type (panels, goals, actions, goal-to-panel affinity, generic over their ids) and `defineCatalog`, which checks one when the app starts. Fixes the no-match ids `UNCLEAR_GOAL` ("unclear") and `NO_ACTION` ("none"). |
 | `layoutModes.ts` | `@attune/core` | The three layouts (focus, compare, overview) and their model descriptions. Library-owned: the policy treats each one differently. |
 | `grid.ts` | `@attune/core` | `packGrid` (anchored packer), `lockedPanels`, `summarizeChanges`, cell spans and breakpoints. Generic over the panel id. |
+| `usage.ts` | `@attune/core` | Recent use per panel: each event's weight halves every 90 s, normalized so the busiest panel is 1. The app gives the panel ids and each event's weight. |
+| `quiet.ts` | `@attune/core` | The quiet rule: which panels fade because the model rated them low two rounds in a row, with a band against flicker and every exemption. The app gives the panel ids and says which events count as use. |
+| `choreography.ts` | `@attune/core` | The staged relayout: timing for grow, exit, move, and enter, which card plays which stage, and the sentences for the anchor note and screen readers. The app gives a panel title function. |
+| `rowFit.ts` | `@attune/core` | Fits a row of cards on one line: full, compact pill, or "+N". The app decides the cards and their order. |
 | `scheduler.ts` | `@attune/core` | `AdaptScheduler`: debounce, max wait, one request in flight, commands first. The app decides which events are triggers. |
 | `words.ts` | `@attune/core` | Numbers and ids as plain words, for the model and for people. |
 | `hooks.ts` | `@attune/react` | Keyboard, debounce, throttle, clock, element size, roving lists, popovers. |
@@ -24,6 +28,15 @@ In `packages/` (generic, tested, used by the demo):
 
 In `apps/demo` (still names the demo's panels, goals, or records):
 everything else.
+
+### How the demo uses a moved module
+
+Demo files import general names straight from `@attune/core`. Where a
+library function needs the app's vocabulary, the demo has a small adapter at
+the old path that binds it once: `src/engine/usage.ts` (the demo's event
+weights and `CATALOG.panelIds`), `src/engine/quiet.ts` (`isQuietTouch`, the
+panel ids, and the goal labels), and `src/ui/choreography.ts` (panel titles).
+An adapter holds only that binding and types narrowed to the demo's ids.
 
 ## The main blocker: the catalog is a module, not configuration
 
@@ -49,11 +62,11 @@ Each step keeps `pnpm test` green and the demo working.
 
 1. **Catalog as configuration.** Done. Add the `Catalog` type to core. Make
    the demo's `shared/catalog.ts` build a value of it. No behavior change.
-2. **Small engine modules that only need ids.** `usage.ts` (recent use) and
-   `quiet.ts` (focus aid 1) loop over `PANEL_IDS`; pass the ids in.
-   `choreography.ts` (stage timing and cues) needs panel titles for two
-   strings; pass a title function. `assistFit.ts` (`fitRow`) is already
-   pure; its slot kinds stay in the demo.
+2. **Small engine modules that only need ids.** Done. `usage.ts` and
+   `quiet.ts` take the panel ids, and the app says what its events mean
+   (each event's weight; which events count as use). `choreography.ts` takes
+   a panel title function. The row fit from `assistFit.ts` is `rowFit.ts`;
+   the demo's card kinds and order stay in `src/ui/assistFit.ts`.
 3. **The question layer.** `server/questions.ts` builds Jev questions from
    the catalog, and `server/normalize.ts` checks the answers against the
    questions sent. Split each into a generic part that reads a `Catalog`

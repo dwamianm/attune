@@ -14,7 +14,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
 import { PANELS, type PanelId } from "../../shared/catalog.ts";
 import { MANUAL_EDIT_HOLD_MS, useEngine } from "../engine/store.ts";
-import { DOCK_PULSE_MS, STAGE_EXIT } from "./choreography.ts";
+import { DOCK_PULSE_MS, STAGE_EXIT } from "@attune/core";
 import { DOCK_ID_ATTR } from "./domHooks.ts";
 import { useElementSize } from "@attune/react";
 import { panelIcon } from "./icons.ts";

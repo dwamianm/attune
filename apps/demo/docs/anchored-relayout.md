@@ -71,7 +71,7 @@ record that was clicked.
 | `src/engine/policy.ts` | engine | anchored-round rules, link boost, relations on placements |
 | `src/engine/store.ts` | engine | anchor lifecycle, link set lifecycle, pointer holds, the place step (pack, round, summary) |
 | `src/ui/domHooks.ts` | UI | attribute names and selectors (done) |
-| `src/ui/choreography.ts` (new) | UI | stage timing constants |
+| `packages/core/src/choreography.ts` (was `src/ui/choreography.ts`) | UI (`@attune/core`) | stage timing constants |
 | `Canvas`, `PanelFrame`, `LinkLines`, `LinksBar`, `Dock`, panels, `index.css` | UI | explicit cells, stages, tint, tags, note, lines, links bar, reporting pointer and columns |
 
 The UI reads only plan and state fields and never calls the packer or the
@@ -400,7 +400,7 @@ One choreography per `plan.round`. Roles come from `changeSummary`:
   canvas changes height: the row under the command bar (the prep card, Up
   next, and the suggestions) is one line of a fixed height whose cards
   collapse into pills and then into "+N" rather than wrap
-  (`src/ui/assistFit.ts`), the canvas caption is one line whose Back to chips
+  (`fitRow` in `@attune/core`), the canvas caption is one line whose Back to chips
   past the newest wait behind "+N", and a new help hint waits for the
   release. The canvas keeps a min height of the larger of the old and new
   rows until the round ends, so the page never shrinks and clamps the
@@ -636,6 +636,12 @@ once and moves nothing. The backfill is not part of the aid: it always runs.
   `src/index.css`: `--color-link-fg`.
 
 ## Constants
+
+Since the monorepo split, the files named `choreography.ts`, `grid.ts`,
+`quiet.ts`, and `usage.ts` in the Where column are in `packages/core/src/`
+(`@attune/core`); the demo's `src/ui/choreography.ts`,
+`src/engine/quiet.ts`, and `src/engine/usage.ts` bind them to its catalog.
+`RESIZE_USAGE_WEIGHT` stays in the demo's `src/engine/usage.ts`.
 
 | Name | Where | Value | Why |
 | --- | --- | --- | --- |

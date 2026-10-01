@@ -1,16 +1,13 @@
 /**
- * Code-measured recent use per panel, one of the three inputs to layout priority.
- *
- * Jev judges relevance from words; this is the plain behavioral count next to
- * it, so a panel the user keeps working in stays prominent even when the
- * model's read of the goal wobbles. Each event adds a weight that halves every
- * USAGE_HALF_LIFE_MS, and the result is normalized so the busiest panel is 1.
+ * Code-measured recent use per panel, one of the three inputs to layout
+ * priority. The count itself (decay with USAGE_HALF_LIFE_MS, normalized so
+ * the busiest panel is 1) is rawUsage and panelUsage in @attune/core. This
+ * file says how much each of the demo's events counts, and binds the count
+ * to the demo's panels (CATALOG).
  */
-import { PANEL_IDS, type PanelId } from "../../shared/catalog.ts";
+import { panelUsage as countPanelUsage, rawUsage as countRawUsage } from "@attune/core";
+import { CATALOG, type PanelId } from "../../shared/catalog.ts";
 import type { SignalEvent, SignalType } from "../../shared/types.ts";
-
-/** Half-life of an interaction's weight. */
-export const USAGE_HALF_LIFE_MS = 90_000;
 
 /**
  * Weight of making a panel bigger or smaller by hand: a strong focus, more
@@ -59,24 +56,14 @@ function eventWeight(e: SignalEvent): number {
   return USAGE_WEIGHTS[e.type] ?? 0;
 }
 
+const USAGE = { panelIds: CATALOG.panelIds, weight: eventWeight };
+
 /** Raw decayed totals per panel (not normalized). */
 export function rawUsage(events: SignalEvent[], now: number): Record<PanelId, number> {
-  const totals = Object.fromEntries(PANEL_IDS.map((id) => [id, 0])) as Record<PanelId, number>;
-  for (const e of events) {
-    if (!e.panel || !(e.panel in totals)) continue;
-    const w = eventWeight(e);
-    if (w <= 0) continue;
-    const age = Math.max(0, now - e.t);
-    totals[e.panel] += w * Math.pow(0.5, age / USAGE_HALF_LIFE_MS);
-  }
-  return totals;
+  return countRawUsage(events, now, USAGE);
 }
 
 /** Decayed per-panel usage, normalized to 0..1 by the busiest panel. All zeros when nothing happened. */
 export function panelUsage(events: SignalEvent[], now: number): Record<PanelId, number> {
-  const totals = rawUsage(events, now);
-  const max = Math.max(...Object.values(totals));
-  if (!(max > 0)) return totals;
-  for (const id of PANEL_IDS) totals[id] = totals[id] / max;
-  return totals;
+  return countPanelUsage(events, now, USAGE);
 }

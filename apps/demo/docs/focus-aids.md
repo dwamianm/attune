@@ -177,6 +177,10 @@ the policy plans exactly as before.
 
 ### Constants
 
+Since the monorepo split, `choreography.ts` and `quiet.ts` in the Where
+column are in `packages/core/src/` (`@attune/core`); the demo's
+`src/ui/choreography.ts` and `src/engine/quiet.ts` bind them to its catalog.
+
 | Name | Where | Value | Why |
 | --- | --- | --- | --- |
 | `FRONT_RING_MS` | choreography.ts | 1,200 | Long enough to find the card after it lands, short enough not to read as a state |
@@ -220,8 +224,8 @@ get quiet, without hiding anything and without jarring moves.
 | Question | Who answers | Where |
 | --- | --- | --- |
 | How useful is each panel for the work right now? | Jev, the existing `rel_<panel>` Scores (no question changed) | `server/questions.ts` |
-| Is a panel low, for how many rounds, and inside the band? | Code | `countQuietRound` in `src/engine/quiet.ts` |
-| Is it exempt right now? | Code | `quietPanels` in `quiet.ts`, and the policy's own checks |
+| Is a panel low, for how many rounds, and inside the band? | Code | `countQuietRound` in `@attune/core` (`packages/core/src/quiet.ts`) |
+| Is it exempt right now? | Code | `quietPanels` in `@attune/core`, with the demo's `isQuietTouch` (`src/engine/quiet.ts`), and the policy's own checks |
 | Does it shrink this round? | Code | `computePlan` in `src/engine/policy.ts` |
 | How does it look? | UI | `PanelFrame.tsx`, `Canvas.tsx` |
 
@@ -315,6 +319,10 @@ The inspector's Metrics tab has "Quiet panels": how many are quiet now
 user reopened anyway, a sign the fade was wrong (`FlowMetrics.quiet`).
 
 ### Constants
+
+Since the monorepo split, `choreography.ts` and `quiet.ts` in the Where
+column are in `packages/core/src/` (`@attune/core`); the demo's
+`src/ui/choreography.ts` and `src/engine/quiet.ts` bind them to its catalog.
 
 | Name | Where | Value | Why |
 | --- | --- | --- | --- |

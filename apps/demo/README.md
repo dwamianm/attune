@@ -325,9 +325,10 @@ and tuned in one place.
 Other thresholds: `src/engine/command.ts` (apply a command at panel confidence
 0.6, ask at 0.35, set a filter at 0.55, suggest its action at 0.55, lower than
 the 0.7 for passive steps because the user typed the request),
-`AdaptScheduler` in `@attune/core` (debounce and gaps), `src/engine/snapshot.ts` (what
-counts as a burst, a quick dismissal, a reopened record, idle), and
-`src/engine/usage.ts` (recent use fades with a 90 s half-life). Pointer rests
+`AdaptScheduler` in `@attune/core` (debounce and gaps), `src/engine/snapshot.ts`
+(what counts as a burst, a quick dismissal, a reopened record, idle), and
+`src/engine/usage.ts` (what each event counts; `panelUsage` in `@attune/core`
+fades recent use with a 90 s half-life). Pointer rests
 are timed from the first real pointer movement in a card and capped at 15 s, so
 a card that slides under a resting pointer does not log interest.
 
@@ -561,8 +562,8 @@ rules, and constants: [docs/predictive-flow.md](docs/predictive-flow.md).
 The meeting prep card, the Done card or Up next, and the suggested next
 steps share one row of a fixed height, so it never pushes the canvas (or the
 panel just clicked) down. When they do not all fit
-(`src/ui/assistFit.ts`, measured with a ResizeObserver in
-`src/ui/AssistRow.tsx`):
+(`fitRow` in `@attune/core`, with the card order from `src/ui/assistFit.ts`,
+measured with a ResizeObserver in `src/ui/AssistRow.tsx`):
 
 - **Priority.** A meeting starting soon comes first, then the Done card (or
   Up next, or its completion line), then the primary suggestion, then the
@@ -876,7 +877,10 @@ docs/         Design notes: anchored relayout, focus aids, predictive flow
 
 From the library (`packages/`): the catalog check (`CATALOG` in
 `shared/catalog.ts` goes through `defineCatalog`), the layout modes, the grid
-packer, the request scheduler, and the plain-word helpers (`@attune/core`); the generic React hooks
+packer, the request scheduler, recent use, the quiet rule, the relayout
+timing, the row fit under the command bar, and the plain-word helpers
+(`@attune/core`). The demo's `src/engine/usage.ts`, `src/engine/quiet.ts`,
+and `src/ui/choreography.ts` bind them to its catalog and events; the generic React hooks
 (`@attune/react`); the request guard and rate limiter (`@attune/server`).
 
 ## Known limits

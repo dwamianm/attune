@@ -19,7 +19,7 @@ import { Link2, Undo2 } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { PanelId } from "../../shared/catalog.ts";
-import { ANCHOR_NOTE_MS, REDUCED_FADE_MS } from "./choreography.ts";
+import { ANCHOR_NOTE_MS, REDUCED_FADE_MS } from "@attune/core";
 import { ANCHOR_NOTE_ATTR, LINK_ATTR, panelHeaderSelector } from "./domHooks.ts";
 import { useLatest } from "@attune/react";
 

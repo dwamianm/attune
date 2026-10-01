@@ -39,7 +39,7 @@ import {
   LINK_LINE_SHOW_MS,
   LINK_TAG_PULSE_MS,
   STAGE_EASE,
-} from "./choreography.ts";
+} from "@attune/core";
 import {
   appBarSelector,
   itemSelector,

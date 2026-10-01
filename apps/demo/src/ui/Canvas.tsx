@@ -28,14 +28,13 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { LAYOUT_MODE_DEFS, type PanelId } from "../../shared/catalog.ts";
 import type { GridCell, GridColumns, LayoutPlan, PanelSize } from "../../shared/types.ts";
 import { fadeQuietOn } from "../engine/focusAids.ts";
-import { cellsOverlap, GRID_BREAKPOINTS } from "@attune/core";
+import { cellsOverlap, cueFor, FRONT_RING_MS, GRID_BREAKPOINTS, shownQuiet, STAGE_ENTER } from "@attune/core";
 import { planSignature } from "../engine/policy.ts";
-import { shownQuiet } from "../engine/quiet.ts";
 import { MANUAL_EDIT_HOLD_MS, useEngine } from "../engine/store.ts";
 import { AnchorNote } from "./AnchorNote.tsx";
 import { BackTo } from "./BackTo.tsx";
 import { ChangeFeed } from "./ChangeFeed.tsx";
-import { cueFor, FRONT_RING_MS, linkAnnouncement, noteText, STAGE_ENTER } from "./choreography.ts";
+import { linkAnnouncement, noteText } from "./choreography.ts";
 import { appBarSelector, CANVAS_ATTR, LINK_ATTR, PANEL_ATTR, panelSelector } from "./domHooks.ts";
 import { isTextField } from "@attune/react";
 import { LinkLines } from "./LinkLines.tsx";

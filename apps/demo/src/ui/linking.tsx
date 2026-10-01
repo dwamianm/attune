@@ -14,7 +14,8 @@ import { CLIENTS } from "../../shared/fixtures.ts";
 import type { AnchorRef, ItemKind } from "../../shared/types.ts";
 import type { LinkSet } from "../engine/contract.ts";
 import { useEngine } from "../engine/store.ts";
-import { roundCues, unstaged, type RoundCues } from "./choreography.ts";
+import { roundCues, unstaged } from "@attune/core";
+import type { RoundCues } from "./choreography.ts";
 import { ITEM_KIND_ATTR, itemAttrs, LINK_ATTR, type LinkRole } from "./domHooks.ts";
 import { useLatest } from "@attune/react";
 

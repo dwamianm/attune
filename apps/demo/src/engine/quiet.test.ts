@@ -7,20 +7,14 @@ import { describe, expect, it } from "vitest";
 import type { GoalId, LayoutMode, PanelId } from "../../shared/catalog.ts";
 import type { AnchorRef, LayoutPlan } from "../../shared/types.ts";
 import type { PolicyInput } from "./contract.ts";
-import { packGrid } from "@attune/core";
 import { UNQUIET_REASON, applyPromotion, computePlan, defaultPlan, editPlan } from "./policy.ts";
+import { QUIET_BELOW, QUIET_EXIT_ABOVE, QUIET_RECENT_USE_MS, QUIET_ROUNDS, packGrid, shownQuiet, touchQuiet } from "@attune/core";
 import {
-  QUIET_BELOW,
-  QUIET_EXIT_ABOVE,
-  QUIET_RECENT_USE_MS,
-  QUIET_ROUNDS,
   countQuietRound,
   emptyQuietTrack,
   isQuietTouch,
   quietPanels,
   quietReason,
-  shownQuiet,
-  touchQuiet,
   type QuietContext,
   type QuietTrack,
 } from "./quiet.ts";

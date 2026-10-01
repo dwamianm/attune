@@ -41,12 +41,11 @@ import type {
   Suggestion,
 } from "../../shared/types.ts";
 import type { HabitHints, PanelViewState, PolicyInput } from "./contract.ts";
-import { lockedPanels, startsBefore } from "@attune/core";
+import { lockedPanels, lowerFirst, matchesQuery, p2, possessive, QUIET_BELOW, QUIET_SIZE, startsBefore, timesWord } from "@attune/core";
 import { HABIT_WEIGHT, habitActionReason, habitReason } from "./habits.ts";
-import { QUIET_BELOW, QUIET_SIZE, quietReason } from "./quiet.ts";
+import { quietReason } from "./quiet.ts";
 import { LINKED_PANELS_MAX, relationFor } from "./relations.ts";
 import { panelUsage } from "./usage.ts";
-import { lowerFirst, matchesQuery, p2, possessive, timesWord } from "@attune/core";
 
 // ---------------------------------------------------------------------------
 // Thresholds. Demo defaults; tune them here.
