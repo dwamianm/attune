@@ -1,0 +1,27 @@
+{
+  "name": "@attune/jev",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The Jev question layer for Attune: the core questions built from an app's catalog, the readers that turn Jev's answers into typed judgments, and one round with a total budget and a fallback.",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@attune/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "@typesafe-ai/sdk": "0.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@typesafe-ai/sdk": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
