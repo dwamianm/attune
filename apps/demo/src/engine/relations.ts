@@ -13,14 +13,8 @@ import type { AppData, PanelViewState } from "./contract.ts";
 import { matchesQuery } from "@attune/core";
 
 /**
- * Most panels that get a relation (tag, tint, link line, and the priority
- * boost) per anchor. Three lines are easy to follow; more read as noise, and
- * one click must not flood the canvas.
- */
-export const LINKED_PANELS_MAX = 3;
-
-/**
- * Most panels one link set holds. A click links at most LINKED_PANELS_MAX;
+ * Most panels one link set holds. A click links at most LINKED_PANELS_MAX
+ * (@attune/core);
  * a meeting prep view (focus aid 4) links every record kind of one client,
  * which is five panels.
  */

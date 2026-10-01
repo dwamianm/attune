@@ -18,8 +18,7 @@ import type { AnchorRef, ItemKind, LayoutPlan, PanelPlacement, PanelRelation, Pr
 import { clockTime, dayOffset, daysUntil, formatMoney, invoiceDueText, PROJECT_STATUS_LABEL, projectDeadlineText, taskDueText } from "../ui/format.ts";
 import type { AppData, PanelViewState, PrepRanking } from "./contract.ts";
 import { recordKey, type RevealPatch } from "./nextUp.ts";
-import { matchesQuery, SIZE_RANK } from "@attune/core";
-import { LINKED_MIN_SIZE, withoutQuiet } from "./policy.ts";
+import { LINKED_MIN_SIZE, matchesQuery, SIZE_RANK, withoutQuiet } from "@attune/core";
 import { invoiceIdsIn } from "./relations.ts";
 
 // ---------------------------------------------------------------------------

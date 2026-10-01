@@ -2,9 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { GoalId, LayoutMode, PanelId } from "../../shared/catalog.ts";
 import type { ActionId } from "../../shared/catalog.ts";
 import type { PolicyInput } from "./contract.ts";
-import { DENSITY_CAPS } from "@attune/core";
+import { DENSITY_CAPS, MEMBERSHIP_HOLD_MS } from "@attune/core";
 import {
-  MEMBERSHIP_HOLD_MS,
   applyPromotion,
   buildSuggestions,
   computePlan,

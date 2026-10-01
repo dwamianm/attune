@@ -19,7 +19,6 @@ import type {
   AnchorRef,
   ChangeSummary,
   Decision,
-  Density,
   GridColumns,
   InvoiceStatusArg,
   ItemKind,
@@ -735,76 +734,18 @@ export type DeriveObservations = (events: SignalEvent[], now: number) => string[
 export type BuildSnapshot = (events: SignalEvent[], ctx: SnapshotContext) => import("../../shared/types.ts").InteractionSnapshot;
 
 /** ./policy.ts must export computePlan and defaultPlan. Pure, no DOM, no store access. */
-export interface PolicyInput {
+/**
+ * The policy's input (PolicyInput in @attune/core: judgments, the previous
+ * plan, events, weights, pins, dismissals, focus, recent modes and
+ * densities, undo memory, the anchor and its linked records, holds, link
+ * cues, bigger panels, quiet panels, the front group, habits), for the
+ * demo's panels, with the demo's own judgments, weights, events, and habits.
+ */
+export interface PolicyInput extends Lib.PolicyInput<PanelId, GoalId, ActionId, Suggestion, ItemKind, HabitHints> {
   judgments: import("../../shared/types.ts").Judgments;
-  version: number;
   previous: LayoutPlan;
   events: SignalEvent[];
-  now: number;
   weights: PolicyWeights;
-  pinned: PanelId[];
-  dismissed: Partial<Record<PanelId, number>>;
-  focusedPanel: PanelId | null;
-  /** Layout modes judged in the last few rounds, newest last (for hysteresis). */
-  recentModes: LayoutMode[];
-  /**
-   * Densities judged confidently in the last few rounds, newest last,
-   * including this round. When given, density changes only after two rounds
-   * agree. Omitted: the old one-round rule.
-   */
-  recentDensities?: Density[];
-  /** Changes the user undid. Not repeated while the judgments stay the same. */
-  avoid?: { mode?: LayoutMode; add?: PanelId[]; dock?: PanelId[] };
-  /**
-   * The live anchor. With a work anchor on the canvas, the policy keeps the
-   * anchor and every locked panel (lockedPanels in @attune/core, read from
-   * previous.grid) on the canvas at their size and order, never shrinks the
-   * anchor, and puts every newcomer after the anchor. Absent: no anchor rules.
-   */
-  anchor?: AnchorRef | null;
-  /** Records linked to the anchor, per panel, from findLinked() in ./relations.ts. */
-  linked?: Partial<Record<PanelId, RelatedRecord[]>>;
-  /** Panels that must stay on the canvas this round: under the pointer, within POINTER_LEAVE_HOLD_MS. */
-  hold?: PanelId[];
-  /**
-   * The link set on screen (EngineState.links, "stay" mode): its source panel
-   * and linked panels are never docked by the policy, and are at least
-   * LINKED_MIN_SIZE so the clicked row and the tinted rows still show. They
-   * may move to other cells once the anchor is released.
-   */
-  linkHold?: { source: PanelId; linked: PanelId[] };
-  /**
-   * Panels the user made bigger (EngineState.bigger): always on the canvas
-   * and always hero size, like a size pin, whatever Jev rates them. Absent:
-   * none.
-   */
-  bigger?: PanelId[];
-  /**
-   * Panels the focus aid "Fade panels that do not matter now" judged quiet
-   * (quietPanels in ./quiet.ts). The policy marks them `quiet`, and shows
-   * them compact where that keeps the calm relayout rules: never a locked
-   * panel in an anchored round, never a panel the user resized. Absent or
-   * empty: no quiet panels (the aid is off, or nothing is quiet).
-   */
-  quiet?: PanelId[];
-  /**
-   * The front group ("Move pinned and bigger panels to the front" on): every
-   * panel the user pinned or made bigger, newest first (frontGroup in
-   * ./focusAids.ts). They lead the order in exactly this order in every
-   * round, anchored or not, a pinned one keeps its size, and the other
-   * panels take the mode's slots after them. Absent: the older rules (pins
-   * first in pin order, sized by their slots).
-   */
-  front?: PanelId[];
-  /**
-   * Focus aid 3, "Learn my habits": the habits with enough evidence this
-   * round (habitHints in ./habits.ts). Each panel gets a habit part, the
-   * habit weight times its learned chance of being next, on top of its
-   * priority (placement.breakdown.habit), with a reason when that part is
-   * the strongest; and when Jev is unsure of the next step, the usual action
-   * after the open record may be a subtle suggestion. Absent: the older rules.
-   */
-  habit?: HabitHints;
 }
 export type ComputePlan = (input: PolicyInput) => LayoutPlan;
 export type DefaultPlan = () => LayoutPlan;

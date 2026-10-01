@@ -8,9 +8,9 @@ import type { LayoutMode, PanelId } from "../../shared/catalog.ts";
 import { EVENTS, INVOICES, MESSAGES, PROJECTS, TASKS } from "../../shared/fixtures.ts";
 import type { AnchorRef, LayoutPlan } from "../../shared/types.ts";
 import type { AppData, PolicyInput } from "./contract.ts";
-import { packGrid, SIZE_RANK } from "@attune/core";
-import { LINK_PRIORITY_BOOST, applyPromotion, computePlan, defaultPlan, remarkPanels, scorePanels } from "./policy.ts";
-import { LINKED_PANELS_MAX, findLinked } from "./relations.ts";
+import { LINK_PRIORITY_BOOST, LINKED_PANELS_MAX, packGrid, SIZE_RANK } from "@attune/core";
+import { applyPromotion, computePlan, defaultPlan, remarkPanels, scorePanels } from "./policy.ts";
+import { findLinked } from "./relations.ts";
 import { choiceJ, makeJudgments, type JudgmentOverrides } from "./test-helpers.ts";
 
 const NOW = 10_000_000;

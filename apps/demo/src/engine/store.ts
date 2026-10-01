@@ -84,6 +84,7 @@ import {
   SIZE_RANK,
   summarizeChanges,
   touchQuiet,
+  withoutQuiet,
 } from "@attune/core";
 import {
   clearSavedHabits,
@@ -136,7 +137,6 @@ import {
   restoredSize,
   suggestionRecord,
   traditionalPlan,
-  withoutQuiet,
   type PlanEdit,
   type PolicyLiveData,
 } from "./policy.ts";

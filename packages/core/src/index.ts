@@ -7,9 +7,11 @@
  */
 export * from "./catalog.ts";
 export * from "./choreography.ts";
+export * from "./createPolicy.ts";
 export * from "./grid.ts";
 export * from "./judgments.ts";
 export * from "./layoutModes.ts";
+export * from "./plan.ts";
 export * from "./policy.ts";
 export * from "./quiet.ts";
 export * from "./rowFit.ts";

@@ -11,22 +11,24 @@
  * final layout are decided in client code (src/engine/policy.ts).
  */
 import type {
+  AnchorRef as LibAnchorRef,
   BlendWeights,
+  CoreSuggestion,
+  LayoutPlan as LibLayoutPlan,
+  PanelPlacement as LibPanelPlacement,
+  PanelRelation as LibPanelRelation,
+  PlanGrid as LibPlanGrid,
+  RelatedRecord as LibRelatedRecord,
   ChangeSummary as LibChangeSummary,
   ChoiceJudgment,
   CoreCommandJudgments,
   CoreSignalType,
   Decision as LibDecision,
-  Density,
-  HelpLevel,
   CoreJudgments,
-  GridCell,
-  GridColumns,
   InteractionSnapshot,
-  PanelSize,
   ScoreJudgment,
 } from "@attune/core";
-import type { ActionId, GoalId, LayoutMode, PanelId } from "./catalog.ts";
+import type { ActionId, GoalId, PanelId } from "./catalog.ts";
 
 export type { ChoiceJudgment, Density, GridCell, GridColumns, HelpLevel, InteractionSnapshot, PanelSize, ScoreJudgment } from "@attune/core";
 
@@ -327,58 +329,17 @@ export interface PrepResponse {
 // optional on the plan, so plans built before this feature stay valid.
 // ---------------------------------------------------------------------------
 
-/**
- * The panel the user just worked in, and the record or client that work was
- * about. During the relayout that follows, a "work" anchor's top-left stays
- * still on screen and everything else moves around it.
- */
-export interface AnchorRef {
-  panel: PanelId;
-  itemKind?: ItemKind;
-  itemId?: string;
-  /** Client company the work was about, when there is one. */
-  client?: string;
-  /** Short name for tags, for example "INV-1042", "Priya Nair", or "Harbor Coffee Co.". */
-  label?: string;
-  /** Epoch ms when this anchor was set. Also its identity: new work makes a new anchor. */
-  at: number;
-  /**
-   * "work" (or absent): a click or keystroke inside the panel; its top-left is held.
-   * "command": the panel the command bar asked for; it still goes to the front
-   * as the hero, and gets the same link color, lines, and tags.
-   */
-  source?: "work" | "command";
-}
+/** The panel the user just worked in, and what the work was about (AnchorRef in @attune/core). */
+export type AnchorRef = LibAnchorRef<PanelId, ItemKind>;
+/** One record in another panel that code joined to the anchor (RelatedRecord in @attune/core). */
+export type RelatedRecord = LibRelatedRecord<ItemKind>;
+/** Why a panel is linked to the anchor (PanelRelation in @attune/core). */
+export type PanelRelation = LibPanelRelation<PanelId, ItemKind>;
 
-/** One record in another panel that code joined to the anchor (no model call). */
-export interface RelatedRecord {
-  itemKind: ItemKind;
-  /** The same id the row carries in data-item-id, for example "m-1" or "c-harbor". */
-  itemId: string;
-  /** Readable name, for example "Priya Nair: Re: Invoice INV-1042". */
-  label: string;
-}
 
-/** Why a panel is linked to the anchor. Set on at most LINKED_PANELS_MAX placements. */
-export interface PanelRelation {
-  anchorPanel: PanelId;
-  /** Header tag, for example "Linked to INV-1042" (the client name when the anchor has no record). */
-  tag: string;
-  /** Hover and focus text, for example "2 messages from Harbor Coffee Co.". */
-  reason: string;
-  /** Linked records in this panel, most useful first, never empty. The UI tints the ones it shows. */
-  records: RelatedRecord[];
-}
 
-/** Explicit cells for every placement, packed for one column count. */
-export interface PlanGrid {
-  columns: GridColumns;
-  cells: Partial<Record<PanelId, GridCell>>;
-  /** Rows in use (largest row + h), so the canvas can reserve its height. */
-  rows: number;
-  /** True when this round kept the anchor's top-left (a work anchor that was already on the canvas). */
-  anchored: boolean;
-}
+/** Explicit cells for every placement (PlanGrid in @attune/core). */
+export type PlanGrid = LibPlanGrid<PanelId>;
 
 /**
  * What happened to each panel's cell versus the previous plan (ChangeSummary
@@ -386,58 +347,13 @@ export interface PlanGrid {
  */
 export type ChangeSummary = LibChangeSummary<PanelId>;
 
-export interface PanelPlacement {
-  id: PanelId;
-  size: PanelSize;
-  /** Final blended priority, 0..1 (plus pin boost). */
-  priority: number;
-  pinned: boolean;
-  /** Why the panel is here and this big, in one short sentence. */
-  reason: string;
-  /** Set on the plan that changed this panel, cleared on the next plan. */
-  change: "promoted" | "demoted" | "added" | null;
-  /** How the priority was built, for the inspector. Each part is already weighted. */
-  breakdown?: {
-    relevance: number;
-    usage: number;
-    goal: number;
-    pin: number;
-    /** Focus aid 3: the weighted habit part. Present only in a round that used a habit (docs/focus-aids.md, "Aid 3"). */
-    habit?: number;
-  };
-  /** Epoch ms when the policy brought this panel onto the canvas, for the minimum stay. */
-  addedAt?: number;
-  /** True on the anchor's placement (the panel just worked in, or a command's hero). */
-  anchor?: boolean;
-  /** Set when this panel holds records linked to the plan's anchor. */
-  relation?: PanelRelation;
-  /**
-   * True when the user made this panel bigger ("Make bigger"). It stays at
-   * hero size until the user makes it smaller or docks it; the policy never
-   * shrinks or docks it. Absent: the policy decides its size.
-   */
-  bigger?: boolean;
-  /**
-   * True when the focus aid "Fade panels that do not matter now" judged this
-   * panel quiet (docs/focus-aids.md): the UI shows it faded, with a "Quiet"
-   * label, and `reason` says why. Absent: a normal panel.
-   */
-  quiet?: boolean;
-  /**
-   * Set only when being quiet made the panel smaller: the size it had
-   * before, which it goes back to when the user clicks into it.
-   */
-  unquietSize?: PanelSize;
-}
+/** One panel on the canvas (PanelPlacement in @attune/core). */
+export type PanelPlacement = LibPanelPlacement<PanelId, ItemKind>;
 
-export interface Suggestion {
-  actionId: ActionId;
-  label: string;
-  prominence: "primary" | "subtle";
-  confidence: number;
+/** A suggested next step: the core fields (CoreSuggestion in @attune/core) and the record it acts on. */
+export interface Suggestion extends CoreSuggestion<ActionId> {
   /** The exact record the action will act on, so the label and the action agree. */
   args: { client?: string; invoiceId?: string; messageId?: string; projectId?: string; taskId?: string };
-  reason: string;
   /**
    * True for the step Jev read from the record the user clicked (its
    * link-action), offered once the record it acts on is open. The panel
@@ -469,34 +385,8 @@ export interface Suggestion {
 /** One change the policy made or held back, in words (Decision in @attune/core), for the demo's panels. */
 export type Decision = LibDecision<PanelId>;
 
-export interface LayoutPlan {
-  mode: LayoutMode;
-  /** Panels on the canvas, in display order. */
-  placements: PanelPlacement[];
-  /** Panels available in the dock (not on the canvas). */
-  docked: PanelId[];
-  density: Density;
-  suggestions: Suggestion[];
-  help: HelpLevel;
-  /** What changed versus the previous plan, and why. */
-  decisions: Decision[];
-  /** Version of the AdaptResponse this plan came from, 0 for the default plan. */
-  basedOnVersion: number;
-  /** Panel id -> epoch ms when the policy (not the user) moved it to the dock, for the minimum stay there. */
-  autoDockedAt?: Partial<Record<PanelId, number>>;
-  /** The anchor this plan was built around. Absent or null: none. */
-  anchor?: AnchorRef | null;
-  /** Cell changes versus the previous plan, for the staged choreography. Absent: nothing to stage. */
-  changeSummary?: ChangeSummary;
-  /**
-   * Increases by 1 whenever membership, a size, a cell, or anchor.at changes
-   * (suggestion-only updates keep it). Absent means 0. The UI plays one
-   * choreography per round and keys it on this number.
-   */
-  round?: number;
-  /** Explicit cells from packGrid (@attune/core). Absent: the canvas falls back to the CSS dense flow. */
-  grid?: PlanGrid;
-}
+/** The layout plan (LayoutPlan in @attune/core), for the demo's panels, suggestions, and record kinds. */
+export type LayoutPlan = LibLayoutPlan<PanelId, Suggestion, ItemKind>;
 
 /** The blend's weights (BlendWeights in @attune/core: relevance, usage, goal), plus the habit weight. */
 export interface PolicyWeights extends BlendWeights {
