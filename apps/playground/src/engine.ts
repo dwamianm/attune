@@ -13,6 +13,7 @@ import {
   panelUsage,
   type AdaptiveRequest,
   type AdaptiveResponse,
+  type AdaptiveSpec,
   type AnchorRef,
   type CoreSuggestion,
   type EventWords,
@@ -25,6 +26,16 @@ import { ARTICLES, CUSTOMERS, TICKETS } from "./data.ts";
 
 export type Judgments = RoundJudgments<PanelId, GoalId, ActionId>;
 export type Suggestion = CoreSuggestion<ActionId>;
+
+/** The help desk's types for the library loop. */
+export interface DeskSpec extends AdaptiveSpec {
+  panel: PanelId;
+  goal: GoalId;
+  action: ActionId;
+  kind: RecordKind;
+  judgments: Judgments;
+  policyExtra: undefined;
+}
 
 export const WORDS: EventWords<PanelId> = {
   panels: CATALOG.panels,
@@ -72,7 +83,7 @@ export async function postAdapt(request: AdaptiveRequest, opts: { signal: AbortS
 }
 
 export function createDeskStore(send: (request: AdaptiveRequest, opts: { signal: AbortSignal }) => Promise<AdaptiveResponse<Judgments>> = postAdapt) {
-  return createAdaptiveStore<PanelId, GoalId, ActionId, Suggestion, RecordKind, Judgments>({
+  return createAdaptiveStore<DeskSpec>({
     catalog: CATALOG,
     policy: POLICY,
     words: WORDS,

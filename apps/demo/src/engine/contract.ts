@@ -708,6 +708,8 @@ export interface EngineActions {
   dismissPrep(): void;
   /** Focus aid 4, a test tool: add a meeting starting SIMULATED_MEETING_IN_MS from now with a client who has recent activity. Reset removes it. */
   simulateMeeting(): void;
+  /** Stop every timer and the request in flight (tests). */
+  dispose(): void;
 }
 
 export type Engine = EngineState & EngineActions;

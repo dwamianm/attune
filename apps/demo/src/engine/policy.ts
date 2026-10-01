@@ -389,7 +389,8 @@ function clean(n: number | undefined): number {
 /** A manual edit to the plan (PlanEdit in @attune/core), for the demo's panels. */
 export type PlanEdit = LibPlanEdit<PanelId>;
 
-const POLICY = createPolicy<PanelId, GoalId, ActionId, Suggestion, ItemKind, HabitHints, PolicyInput, PolicyLiveData>({
+/** The demo's policy (createPolicy), for the store. */
+export const POLICY = createPolicy<PanelId, GoalId, ActionId, Suggestion, ItemKind, HabitHints, PolicyInput, PolicyLiveData>({
   catalog: CATALOG,
   usage: (events, now) => panelUsage(events, now),
   suggest: (input, live = {}) =>

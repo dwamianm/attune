@@ -26,12 +26,12 @@ In `packages/` (generic, tested, used by the demo):
 | `plan.ts` | `@attune/core` | The layout plan and its parts (`LayoutPlan`, `PanelPlacement`, `AnchorRef`, `PanelRelation`, `CoreSuggestion`), generic over the panel ids, the suggestion type, and the record kinds. |
 | `createPolicy.ts` | `@attune/core` | The whole policy round, bound to an app once: `computePlan` (membership, docking with its band, order with hysteresis, sizes, anchors and links, quiet panels, the decisions in words) and the plan edits (a command's hero, pins, "Make bigger", undo marks). The app gives its suggestions, link words, help panel, and habit words. |
 | `place.ts` | `@attune/core` | The place step: `placePlan` packs explicit cells with the anchor held still, keeps the pointer's card from moving, and counts the rounds. |
-| `adaptiveStore.ts` | `@attune/core` | `createAdaptiveStore`: the adaptive loop in one framework-free store (event log, scheduler, request and answer, policy, place step, the anchor, pointer and canvas holds, the minimum change interval, undo, commands). Tested with a small writing app; the demo does not use it yet (step 6d). |
+| `adaptiveStore.ts` | `@attune/core` | The adaptive loop, once, for every app: the event log, the scheduler, request and answer, the policy, the place step, the anchor, pointer and canvas holds, the minimum change interval, undo, and commands. An app types it with one `AdaptiveSpec` and adds its own features through hooks at fixed points (on each event, before a request, on an answer, extra policy input, after the plan, on a commit, around settings, undo, and reset) and an `extend` function that gets the loop's primitives. `createAdaptiveStore` keeps the state in a small store of its own; `createAdaptiveEngine` runs on a host's get and set (the demo's zustand store). |
 | `suggestions.ts`, `fallback.ts` | `@attune/core` | Defaults for an app with nothing of its own: `basicSuggestions` (the model's next step with the demo's thresholds), `basicRelation` (a plain link tag), and `neutralJudgments` (the calm fallback answer). |
 | `round.ts` | `@attune/jev` | `buildRound` and `readRound`: the state and every core question for one round, and the judgments back. |
 | `request.ts` | `@attune/server` | `parseAdaptRequest`: checks and clips an adapt request body. |
 | `useAdaptive.ts` | `@attune/react` | `useAdaptive(store, selector)`: read an adaptive store (or any store with `getState` and `subscribe`) from React. |
-| `canvas.tsx` | `@attune/react` | The canvas: `AdaptiveCanvas` (each card in its plan cell, the staged round from `roundCues`, reduced motion as a fade), `PanelCard` (one animated card; it reports pointer, focus, and pointer rests), `Dock` (leaving cards fly into its items), `ChangeLine` (the last change, with Undo), `useCanvasColumns`, and `useStoreCanvas`, which wires all of it to a library store. Unstyled except for the layout; apps style it with class names and data attributes. `motion` is a peer dependency. |
+| `canvas.tsx` | `@attune/react` | The canvas: `AdaptiveCanvas` (each card in its plan cell, the staged round from `roundCues`, reduced motion as a fade, focus kept through a re-plan, the held panel kept still on screen with its rows, the empty slot of a card docked under the pointer, the front ring and the page following a panel sent to the front, quiet fades, an overlay slot for link lines), `PanelCard` (one animated card; it reports pointer, focus, and pointer rests; an app can draw its own card around it and read its motion with `usePanelCard`), `Dock` (leaving cards fly into its items), `ChangeLine` (the last change, with Undo), `useCanvasColumns`, `useRoundCues`, and `useStoreCanvas`, which wires all of it to a library store. Unstyled except for the layout; apps style it with class names and data attributes. `motion` is a peer dependency. |
 | `judgments.ts` | `@attune/core` | The typed answers the layout code reads: `ChoiceJudgment`, `ScoreJudgment`, `CoreJudgments`, `CoreCommandJudgments`. |
 | `signals.ts` | `@attune/core` | The core signal vocabulary (`CoreSignalType`: focus, open, dismiss, pin, dwell, item open, search, filter, action, command, shortcut, scroll, suggestions, undo, resize) and `SignalProfile`, which says how an app's own types count: as record opens, work, pointer use, or cue-only. |
 | `snapshot.ts` | `@attune/core` | Events into the words-only `InteractionSnapshot`: the sentences for the core types, the behavior observations and their thresholds, collapsing repeats, the focus fallback. The app gives its words (panel titles, record kinds, its actions in the past tense) and its own sentences. |
@@ -55,7 +55,10 @@ panel ids, and the goal labels), and `src/ui/choreography.ts` (panel titles), `s
 demo's signal profile, words, its own event sentences, and what its focused
 panel shows), and `src/engine/policy.ts` (`createPolicy` with the demo's
 suggestions, link words, Guide, habit words, and engine notes). The demo's
-`src/engine/store.ts` calls `placePlan` for its place step.
+`src/engine/store.ts` is the library loop (`createAdaptiveEngine`) in its
+zustand store, with the demo's own parts as the loop's extension, and its
+`src/ui/Canvas.tsx` and `PanelFrame.tsx` are the library canvas
+(`AdaptiveCanvas` around `PanelCard`) with the demo's look and its own cues.
 An adapter holds only that binding and types narrowed to the demo's ids.
 
 ## The main blocker: the catalog is a module, not configuration
@@ -121,7 +124,7 @@ Each step keeps `pnpm test` green and the demo working.
    of record kinds in words (`ITEM_WORDS` in `src/engine/snapshot.ts` and
    `RECORD_KIND_WORDS` in `server/questions.ts`); they could become one
    catalog field.
-6. **The store.** Done in three parts; a fourth is next.
+6. **The store.** Done, in four parts.
    6a: the plan types and the whole policy round are in `@attune/core`
    (`createPolicy`), with the demo's suggestions and words as hooks.
    6b: the place step is `placePlan` in `@attune/core`; the demo's store
@@ -131,16 +134,23 @@ Each step keeps `pnpm test` green and the demo working.
    (pointer moves, pins, resizes, commands, undo, column changes), and the
    policy over four rounds of 20 scenarios with every plan edit, were byte
    for byte the same before and after.
-6d. **The demo on the library store.** The demo still runs its own store
-   (`apps/demo/src/engine/store.ts`), built from the library's parts, because
-   its focus aids hook into the loop in many places: Up next and Back to,
-   the Done card, habits, meeting prep, the link cues that outlive the
-   anchor, the quiet rule, the front group, saved settings, the metrics, and
-   the command view patches. Moving it onto `createAdaptiveStore` needs
-   extension hooks in the store (on track, before a request, on an answer,
-   extra policy input, after the plan, commit gates) and extra state for each
-   aid. Until then the two loops share every pure part but not the loop
-   itself, so a fix to one must be checked in the other.
+6d. **The demo on the library store.** Done. The library store is now the
+   demo's loop, made general: `createAdaptiveEngine` and
+   `createAdaptiveStore` in `@attune/core`, typed by one `AdaptiveSpec`,
+   with hooks where the demo's features join the loop and an `extend`
+   function for their state, bookkeeping, and actions. The demo's
+   `src/engine/store.ts` is that loop in its zustand store, plus its
+   extension: the app data and panel views, the link cues that outlive the
+   anchor, the next step, the focus aids, the front group, saved settings,
+   the metrics, the command's view changes, and the replay. There is one
+   loop now: a fix to it is a fix for every app. The demo's store over
+   every scenario and eight seeded random sessions, and over 24 seeded
+   sessions that also use Up next, Back to, the Done card, habits, meeting
+   prep, command options, settings, and resets, was byte for byte the same
+   before and after. The playground moved onto the same loop, so it now
+   has the demo's rules too: undo puts the undone plan back as the one to
+   redo, reset keeps the pins, and an accepted suggestion leaves the row.
+   The demo's canvas is the library canvas too (step 7).
 7. **React components.** Done for apps on the library store:
    `AdaptiveCanvas`, `PanelCard`, `Dock`, and `ChangeLine` in
    `@attune/react`, with the demo's stage timing, the dock flight, and
@@ -148,11 +158,15 @@ Each step keeps `pnpm test` green and the demo working.
    They draw no look of their own (no Tailwind classes), so an app's CSS
    needs no `@source` for them. The app renders each card's content
    (`renderCard`), which is the panel registry.
-   Still the demo's own, until it moves onto the library store (6d): its
-   `Canvas` and `PanelFrame` with the link lines, the anchor note, the ghost
-   slot after a dock, quiet fades, keyboard focus restore, the scroll safety
-   net, the front ring, and the "Why here?" popover. Those are the next
-   additions to the library canvas, as the demo moves over.
+   The demo moved onto them in 6d: its `Canvas.tsx` is `AdaptiveCanvas`,
+   and its `PanelFrame.tsx` draws its look, header, link tag, and "Why
+   here?" popover around `PanelCard`. Moving it added to the library
+   canvas: keeping focus through a re-plan, the held panel's scroll safety
+   net and row floor, the empty slot of a card docked under the pointer,
+   following and ringing a panel sent to the front, quiet fades, cards in
+   cell order (Tab order), a custom card (`card`, `usePanelCard`), and an
+   overlay slot. The link lines, the anchor note, the links bar, and the
+   "Why here?" popover stay the demo's: they read its link set and words.
 8. **A second app.** Done: `apps/playground`, a help desk with four panels
    of its own, built only from the packages on `createAdaptiveStore` and
    `useAdaptive`, with its own Jev server. It ran live with Jev. Building it
@@ -160,9 +174,9 @@ Each step keeps `pnpm test` green and the demo working.
    `basicSuggestions` and `basicRelation`, the calm fallback
    (`neutralJudgments`), `buildRound` and `readRound`, `parseAdaptRequest`,
    cells for the store's first plan, and the store's `anchorLabel`. Still
-   missing, from its README: the canvas components with staged motion (step
-   7), commands that set filters or name records, and the demo's focus aids
-   in the store (6d).
+   missing, from its README: commands that set filters or name records
+   (the demo does it in its own `resolveCommand` hook), and focus aids of
+   its own.
 9. **Publish.** A build per package (for example tsdown) that emits
    JavaScript and `.d.ts` into `dist/`, `exports` that point there,
    versioning (for example changesets), a license, and an npm scope. This

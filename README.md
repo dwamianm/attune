@@ -85,11 +85,11 @@ and run `pnpm test` or `pnpm typecheck`.
   they count in a `SignalProfile` (as record opens, work, pointer use, or
   cue-only), or passes a small function where a rule needs more, such as the
   weight of an event for recent use.
-- **The library store first, the demo later.** `createAdaptiveStore` was
-  built in the library and tested with a small writing app before the demo
-  moved onto it, because the demo's focus aids hook into its loop in many
-  places. The demo shares every pure part with it but runs its own loop
-  until step 6d (docs/library-roadmap.md).
+- **One loop, with hooks.** The adaptive loop lives once, in
+  `@attune/core` (`createAdaptiveEngine`, `createAdaptiveStore`). An app's
+  own features join it through hooks at fixed points and an `extend`
+  function, the way the demo adds its focus aids, instead of a second loop
+  (docs/library-roadmap.md, step 6d).
 - **Adapters bind once.** Where the demo needs a library function with its
   own vocabulary, a small demo file binds it (see "How the demo uses a moved
   module" in docs/library-roadmap.md). Everything else imports from the

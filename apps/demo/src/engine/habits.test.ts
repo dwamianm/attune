@@ -53,8 +53,12 @@ import { buildNextTasks, TASK_PRIORITY } from "./taskDone.ts";
 import { choiceJ, makeJudgments } from "./test-helpers.ts";
 
 const DAY = 24 * 60 * 60_000;
-/** A local time on September 30, 2026. */
-const at = (h: number, m = 0) => new Date(2026, 8, 30, h, m).getTime();
+/** A local time today, the day the fixtures count from (shared/fixtures.ts), so their due dates read the same on any day. */
+const at = (h: number, m = 0) => {
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  return d.getTime();
+};
 const MORNING = at(9);
 const AFTERNOON = at(14);
 

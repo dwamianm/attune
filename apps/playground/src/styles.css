@@ -41,6 +41,9 @@ button:disabled { opacity: 0.5; cursor: default; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; overflow: hidden; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
 .card[data-anchor] { border-color: var(--accent); }
 .card[data-linked] { border-color: var(--link); }
+/* A card leaving the grid is popped out of the flow; its own grid lines would shift it by a cell before it flies to the dock. */
+[data-canvas] > [data-motion-pop-id] { grid-area: auto !important; }
+[data-ghost] { border: 1px dashed var(--line); border-radius: 12px; }
 .card header { display: flex; align-items: center; gap: 8px; }
 .card h2 { font-size: 14px; margin: 0; }
 .tools { margin-left: auto; display: inline-flex; gap: 4px; }

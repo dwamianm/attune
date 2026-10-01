@@ -62,13 +62,11 @@ Gaps found and filled in the library while building it:
 
 Still missing (see docs/library-roadmap.md):
 
-- **The demo's canvas extras.** The canvas, its staged motion, the dock,
-  and the change line now come from `@attune/react` (step 7). The demo's
-  link lines, anchor note, quiet fades, and focus restore are not in the
-  library canvas yet.
 - **Commands do only panels.** The store promotes the panel a command names;
   filters and records from a command (the demo's invoice status, client, and
-  time period) have no library form yet.
-- **The demo's focus aids** (Up next, Back to, the Done card, habits,
-  meeting prep), the quiet rule in the store, the front group, and saved
-  settings are not in the library store (step 6d).
+  time period) come from an app's own `resolveCommand` hook, and the
+  playground has none yet.
+- **No focus aids of its own.** The demo's (Up next, Back to, the Done
+  card, habits, meeting prep, quiet panels, the front group, saved
+  settings) are its extension of the same loop, in apps/demo, not library
+  parts. The loop's hooks are where a second app would add its own.

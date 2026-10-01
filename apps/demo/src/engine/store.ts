@@ -1,17 +1,23 @@
 /**
- * The client adaptation engine as one zustand store.
+ * The demo's adaptation engine: the library's adaptive loop
+ * (createAdaptiveEngine in @attune/core) in one zustand store, with the
+ * demo's own parts as its extension.
  *
  * UI code reads state with useEngine(selector) and reports what the user does
- * with track(). The store keeps the signal log and the app data, asks the
- * server for Jev judgments through the scheduler, and turns the newest
- * judgments into a LayoutPlan with the pure policy. Request bookkeeping and
- * timers live in the store's closure because they are not UI state.
+ * with track(). The loop (the event log, the scheduler, requests and answers,
+ * the policy, the place step, the anchor, the holds, undo, commands) is the
+ * library's. This file adds what only the demo has, through the loop's hooks:
+ * the app data and the panel views, the link cues that outlive the anchor,
+ * the next step, the focus aids (quiet panels, Up next and Back to, the Done
+ * card, habits, meeting prep), the front group, saved settings, the metrics,
+ * the command's view changes, and the scenario replay. Its bookkeeping lives
+ * in the extension's closure because it is not UI state.
  *
  * Safe to import anywhere: it never touches window or localStorage at import
  * time without a guard, so Node (tests) and browsers with blocked storage work.
  */
 import { create } from "zustand";
-import { ACTIONS, GOALS, PANEL_IDS, panelTitle, type ActionId, type GoalId, type LayoutMode, type PanelId } from "../../shared/catalog.ts";
+import { ACTIONS, CATALOG, GOALS, panelTitle, type ActionId, type GoalId, type PanelId } from "../../shared/catalog.ts";
 import { CLIENT_NAMES, CURRENT_USER, EVENTS, INVOICES, MESSAGES, PROJECTS, TASKS, type Invoice } from "../../shared/fixtures.ts";
 import { SCENARIOS, type ScenarioStep } from "../../shared/scenarios.ts";
 import type { CalendarEvent } from "../../shared/fixtures.ts";
@@ -21,13 +27,10 @@ import {
   type AdaptResponse,
   type AnchorRef,
   type ChoiceJudgment,
-  type CommandJudgments,
-  type Decision,
-  type Density,
+  type ItemKind,
   type Judgments,
   type LayoutPlan,
   type LinkRequest,
-  type PanelSize,
   type PolicyWeights,
   type PrepRequest,
   type RelatedRecord,
@@ -41,12 +44,12 @@ import { commandFailureMessage, isAbortError, postAdapt, postPrep, watchHealth }
 import { resolveCommand, type CommandResolution, type ViewPatch } from "./command.ts";
 import { addContext, commandSwitchesArea, contextClient, contextLabel, judgeSwitch, panelGoal, restoredPlan, type PendingSwitch } from "./contexts.ts";
 import type {
-  AdaptationRecord,
   AppData,
+  CommandOutcome,
   Engine,
+  EngineActions,
   EngineSettings,
   EngineState,
-  EngineStatus,
   LinkSet,
   MeetingPrepState,
   PanelViewState,
@@ -70,20 +73,19 @@ import {
   taskDoneOn,
   upNextOn,
 } from "./focusAids.ts";
-import * as Lib from "@attune/core";
 import {
-  AdaptScheduler,
-  cellsEqual,
-  emptySummary,
-  judgedDensity,
-  placePlan,
-  reflowCells,
-  type SendArgs,
+  createAdaptiveEngine,
+  HISTORY_LIMIT,
   shownQuiet,
   SIZE_RANK,
   touchQuiet,
   withGrid,
   withoutQuiet,
+  type AdaptiveHooks,
+  type AdaptiveKernel,
+  type AdaptiveSpec,
+  type AdaptiveState,
+  type AdaptiveActions,
 } from "@attune/core";
 import {
   clearSavedHabits,
@@ -125,20 +127,7 @@ import {
   urgentLine,
   withNotesHeading,
 } from "./meetingPrep.ts";
-import {
-  applyPromotion,
-  computePlan,
-  editPlan,
-  isPanelId,
-  markChanges,
-  planSignature,
-  remarkPanels,
-  restoredSize,
-  suggestionRecord,
-  traditionalPlan,
-  type PlanEdit,
-  type PolicyLiveData,
-} from "./policy.ts";
+import { editPlan, isPanelId, POLICY, suggestionRecord, traditionalPlan, type PolicyLiveData } from "./policy.ts";
 import { countQuietRound, emptyQuietTrack, isQuietTouch, quietPanels, type QuietTrack } from "./quiet.ts";
 import { anchorLabel, clientNamedIn, findLinked, kindOfId } from "./relations.ts";
 import {
@@ -171,7 +160,7 @@ import {
   upNextKey,
 } from "./nextUp.ts";
 import { LOCAL_REPLAN_TYPES, triggersRequest } from "./scheduler.ts";
-import { WORK_TYPES, actionPast, buildSnapshot, describeEvent } from "./snapshot.ts";
+import { actionPast, buildSnapshot, describeEvent, SIGNAL_PROFILE, WORDS } from "./snapshot.ts";
 import {
   buildNextTasks,
   chooseNextTask,
@@ -188,76 +177,33 @@ import {
   type DoneRounds,
 } from "./taskDone.ts";
 
+// The loop's thresholds, for the UI and the tests.
+export {
+  ANCHOR_IDLE_RELEASE_MS,
+  ANCHOR_PRESS_WINDOW_MS,
+  COMMAND_HOLD_MS,
+  EVENT_LOG_LIMIT,
+  HISTORY_LIMIT,
+  MANUAL_EDIT_HOLD_MS,
+  POINTER_LEAVE_HOLD_MS,
+  POINTER_MOVE_HOLD_MS,
+  RECENT_DENSITIES_LIMIT,
+  RECENT_MODES_LIMIT,
+  UNDO_HOLD_MS,
+  UNDO_MEMORY_MS,
+  UNDO_TOP_PANEL_MARGIN,
+} from "@attune/core";
+
 /** localStorage key for settings, pins, and the panels the user made bigger. */
 export const STORAGE_KEY = "floouid:v1";
-/** Adaptation records kept for the inspector. */
-export const HISTORY_LIMIT = 30;
-/** Signal events kept in memory. Snapshots and usage only look at recent ones. */
-export const EVENT_LOG_LIMIT = 300;
-/** Judged layout modes kept for mode hysteresis. */
-export const RECENT_MODES_LIMIT = 5;
 /** Default pause between scenario replay steps. */
 export const REPLAY_STEP_MS = 800;
-/** After an undo, hold automatic layout changes this long so the undo sticks. */
-export const UNDO_HOLD_MS = 15_000;
-/**
- * After an undo, do not redo the undone change (mode switch, panels added or
- * docked) until the judgments change materially, or at most this long. Past
- * the 15 s hold, the same judgments brought the undone change straight back.
- */
-export const UNDO_MEMORY_MS = 5 * 60_000;
-/** A different top panel counts as a material change only when it leads the old one by this share of the relevance scale. */
-export const UNDO_TOP_PANEL_MARGIN = 0.1;
-/**
- * A command's promotion (its panel first as the hero, in Focus) survives local
- * re-plans from the same judgments for this long, or until a newer Jev round
- * lands. Without it, a pointer rest 2 s after "calendar" re-read that round's
- * "overview" judgment and undid the command with no new information.
- */
-export const COMMAND_HOLD_MS = 45_000;
-/**
- * After a pin, unpin, or dock under the pointer, the other cards keep their
- * places until the pointer leaves the canvas (as browser tab strips do), a
- * real action happens, or this long passes, so the next click lands on the
- * card the user aimed at. The cap keeps a resting mouse from freezing the canvas.
- */
-export const MANUAL_EDIT_HOLD_MS = 10_000;
-/** Judged densities kept for the density streak rule. */
-export const RECENT_DENSITIES_LIMIT = 5;
-/**
- * An anchoring event this soon after a press in a card belongs to the
- * pressed card: "Invoices" in Clients logs a filter on Invoices, but the
- * user's eyes are on Clients, so Clients holds still and Invoices is linked.
- */
-export const ANCHOR_PRESS_WINDOW_MS = 1_000;
-/**
- * The anchor is released after this long without work, so a later round may
- * rebalance the canvas. Long enough to read the linked panels after a click.
- */
-export const ANCHOR_IDLE_RELEASE_MS = 20_000;
-/**
- * A card under the pointer keeps its cell for at most this long after a
- * round first wanted to move it, so the next click does not land on a card
- * that slid in, while a mouse left resting does not freeze the canvas.
- */
-export const POINTER_MOVE_HOLD_MS = 3_000;
-/** Longer for a card that would leave: taking away what the user points at is worse than moving it. */
-export const POINTER_LEAVE_HOLD_MS = 5_000;
 /**
  * Events that make the panel they happen in (or the pressed card) the anchor.
  * Opening a panel from the dock counts: the user asked for that card, so the
  * next round keeps it and everything before it where they are.
  */
 const ANCHOR_TYPES: ReadonlySet<SignalType> = new Set<SignalType>(["item_open", "up_next_open", "task_start", "filter", "action", "search", "panel_focus", "panel_open"]);
-/**
- * Events a button can log against another panel ("Invoices" in Clients logs a
- * filter on Invoices). Only these follow the press; a focus, an opened row,
- * or a search always happens in its own panel, so an older press elsewhere
- * must not take it.
- */
-const CROSS_PANEL_TYPES: ReadonlySet<SignalType> = new Set<SignalType>(["filter", "action"]);
-/** History text for a round whose layout waits for the minimum change interval. */
-const HELD_TEXT = "Waiting a moment before moving panels again";
 /** Events that mean the user acted, not just looked or moved focus. They end a keyboard or pointer hold. */
 const REAL_ACTION_TYPES: ReadonlySet<SignalType> = new Set<SignalType>(["item_open", "up_next_open", "task_start", "prep_start", "filter", "search", "action", "suggestion_accept"]);
 /**
@@ -268,17 +214,14 @@ const REAL_ACTION_TYPES: ReadonlySet<SignalType> = new Set<SignalType>(["item_op
 const CONTEXT_HOLD_END_TYPES: ReadonlySet<SignalType> = new Set<SignalType>(["item_open", "up_next_open", "task_start", "filter", "search", "action", "suggestion_accept", "command"]);
 /** History text for a round whose layout waited because the user went back to a saved working context. */
 const CONTEXT_HOLD_TEXT = "Kept the layout you went back to until you start new work";
-/** Signals that are a manual edit of one panel, applied at once (manualReplan). */
-const MANUAL_EDITS: Partial<Record<SignalType, PlanEdit["kind"]>> = {
-  panel_pin: "pin",
-  panel_unpin: "unpin",
-  panel_dismiss: "dismiss",
-  panel_open: "open",
-  panel_maximize: "bigger",
-  panel_restore: "smaller",
-};
-/** A dismissal this soon after opening a panel records how long it was open. */
-const DISMISS_DURATION_WINDOW_MS = 10 * 60_000;
+/** Events that make their panel the focused one. */
+const FOCUS_TYPES: ReadonlySet<SignalType> = new Set<SignalType>(["panel_focus", "item_open", "up_next_open", "task_start"]);
+/**
+ * Events left out of the density rule's count: pointer rests are passive,
+ * and a saved working context, a settings switch, a task marked done, or a
+ * prep offer is the engine's own note or the user's setup, not the work.
+ */
+const DENSITY_IGNORES: ReadonlySet<SignalType> = new Set<SignalType>(["panel_dwell", "context_save", "setting_change", "task_done", "prep_offer"]);
 
 export const DEFAULT_SETTINGS: EngineSettings = {
   adaptive: true,
@@ -388,18 +331,6 @@ function without<T extends string>(map: Partial<Record<T, number>>, key: T): Par
   return next;
 }
 
-/** Panel of the newest event that shows where the user is working, for "did focus change". */
-function lastWorkPanel(events: SignalEvent[]): PanelId | null {
-  for (let i = events.length - 1; i >= 0; i--) {
-    const e = events[i];
-    if (e.panel && WORK_TYPES.has(e.type)) return e.panel;
-  }
-  return null;
-}
-
-function messageOf(err: unknown): string {
-  return err instanceof Error && err.message ? err.message : "Something went wrong";
-}
 
 type PerformArgs = { client?: string; invoiceId?: string; messageId?: string; projectId?: string; taskTitle?: string };
 type Via = NonNullable<TrackInput["detail"]>["via"];
@@ -418,25 +349,6 @@ function suggestionIdentity(s: Suggestion): string {
   return `${s.actionId}|${s.prominence}|${s.label}|${suggestionRecord(s) ?? ""}`;
 }
 
-function relShare(j: Judgments, id: PanelId): number {
-  const r = j.relevance?.[id];
-  return r && r.max > 0 ? r.score / r.max : 0;
-}
-
-function topPanel(j: Judgments): PanelId {
-  let best: PanelId = PANEL_IDS[0];
-  for (const id of PANEL_IDS) if (relShare(j, id) > relShare(j, best)) best = id;
-  return best;
-}
-
-/** A different goal, or a clearly different top panel. Drift between near ties does not count. */
-export function judgmentsDifferMaterially(a: Judgments, b: Judgments): boolean {
-  if ((a.goal?.choice ?? null) !== (b.goal?.choice ?? null)) return true;
-  const ta = topPanel(a);
-  const tb = topPanel(b);
-  return ta !== tb && relShare(b, tb) - relShare(b, ta) >= UNDO_TOP_PANEL_MARGIN;
-}
-
 /** The name the link cues go by: the clicked record, else its client, else the source panel. */
 export function linkLabel(links: LinkSet): string {
   return links.source.label ?? links.source.client ?? panelTitle(links.source.panel);
@@ -453,105 +365,74 @@ function sameLinks(a: LinkSet | null, b: LinkSet | null): boolean {
   return key(a) === key(b);
 }
 
-/**
- * The plan re-anchored on `anchor` (a panel the user just made bigger or
- * smaller becomes the anchor, so its round plays the anchor's stages). The
- * relations belong to the old anchor's click, so they go when the anchor
- * changed; the link set in the store keeps its own copy.
- */
-function anchoredOn(plan: LayoutPlan, anchor: AnchorRef | null): LayoutPlan {
-  const same = (plan.anchor?.at ?? null) === (anchor?.at ?? null);
-  return {
-    ...plan,
-    anchor,
-    placements: plan.placements.map((p) => {
-      const on = anchor?.panel === p.id;
-      if (Boolean(p.anchor) === on && (same || !p.relation)) return p;
-      const q = { ...p };
-      if (on) q.anchor = true;
-      else delete q.anchor;
-      if (!same) delete q.relation;
-      return q;
-    }),
-  };
-}
 
 /** Same members, in any order. */
 function sameSet(a: PanelId[], b: PanelId[]): boolean {
   return a.length === b.length && a.every((id) => b.includes(id));
 }
 
-/** A plan with no anchor, relations, or anchor flags (undo restores the layout, not the links). */
-function withoutLinks(plan: LayoutPlan): LayoutPlan {
-  return {
-    ...plan,
-    anchor: null,
-    placements: plan.placements.map((p) => {
-      if (!p.relation && !p.anchor) return p;
-      const q = { ...p };
-      delete q.relation;
-      delete q.anchor;
-      return q;
-    }),
-  };
+
+/**
+ * What the last "Back to" replaced, while its plan is on screen, so an Undo
+ * right after it brings all of it back: the plan, the view state (filters and
+ * selections), the link cues, the docked marks, the working goal, and the
+ * saved contexts. Bigger panels ride on the plan.
+ */
+interface BackToUndo {
+  round: number;
+  plan: LayoutPlan;
+  view: PanelViewState;
+  links: LinkSet | null;
+  dismissed: EngineState["dismissed"];
+  working: WorkingGoal | null;
+  contexts: WorkingContext[];
 }
 
+/** The demo's types for the library loop. */
+interface DemoSpec extends AdaptiveSpec {
+  panel: PanelId;
+  goal: GoalId;
+  action: ActionId;
+  kind: ItemKind;
+  eventType: SignalType;
+  input: TrackInput;
+  event: SignalEvent;
+  suggestion: Suggestion;
+  judgments: Judgments;
+  response: AdaptResponse;
+  request: AdaptRequest;
+  policyInput: PolicyInput;
+  policyExtra: PolicyLiveData;
+  outcome: CommandOutcome;
+  resolution: CommandResolution;
+  settings: EngineSettings;
+  state: Omit<EngineState, keyof AdaptiveState<AdaptiveSpec>>;
+  actions: Omit<EngineActions, keyof AdaptiveActions<AdaptiveSpec>>;
+}
+
+type Kernel = AdaptiveKernel<DemoSpec>;
+
 // ---------------------------------------------------------------------------
-// The store
+// The extension: the demo's own state, bookkeeping, hooks, and actions
 // ---------------------------------------------------------------------------
 
-export const useEngine = create<Engine>()((set, get) => {
+function demoExtension(k: Kernel) {
+  const { get, set } = k;
   const persisted = loadPersisted();
 
-  // Request and timing bookkeeping. Not UI state, so not in the store.
-  let eventSeq = 0;
-  let version = 0;
-  let lastAppliedVersion = 0;
-  let recentModes: LayoutMode[] = [];
-  let recentDensities: Density[] = [];
-  let lastPlanChangeAt = Number.NEGATIVE_INFINITY;
-  let undoHoldUntil = 0;
-  let heldTimer: ReturnType<typeof setTimeout> | null = null;
+  // Bookkeeping. Not UI state, so not in the store.
   let noticeSeq = 0;
   let newItemSeq = 0;
   let replayToken = 0;
   let replayCancel: (() => void) | null = null;
-  let manuallyOpened: PanelId[] = [];
-  let lastCommand: { text: string; judgments: CommandJudgments } | null = null;
-  let baseStatus: Exclude<EngineStatus, "thinking"> = "idle";
-  /** The last command's promotion, kept until a newer Jev round lands (see COMMAND_HOLD_MS). */
-  let commandHold: { panel: PanelId; version: number; at: number; suggestion: Suggestion | null } | null = null;
-  /** What the last undo reverted, and the judgments it was based on (see UNDO_MEMORY_MS). */
-  let undone: { avoid: NonNullable<PolicyInput["avoid"]>; judgments: Judgments; at: number } | null = null;
-  // Where the user's hands are, as reported by the UI (setCanvasHold).
-  let pointerOnCanvas = false;
-  let keyboardOnCanvas = false;
-  let manualHoldUntil = 0;
-  /** A plan waited for a canvas hold and should be applied when it ends. */
-  let canvasDeferred = false;
-  /** The waiting catch-up is the traditional layout (adaptive off or no judgments yet). */
-  let catchupTraditional = false;
-  let canvasTimer: ReturnType<typeof setTimeout> | null = null;
-  let healthFailed = false;
+
   // Anchored relayout (docs/anchored-relayout.md).
-  /** The last press in a card, for ANCHOR_PRESS_WINDOW_MS. */
-  let lastPress: { panel: PanelId; at: number } | null = null;
-  let anchorTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Anchors are told apart by `at`, so two in the same millisecond still differ. */
-  let lastAnchorAt = 0;
-  /** The highest round ever issued, so rounds keep counting up after a reset. */
-  let roundSeq = 0;
-  /** A round kept the pointer's card from moving or leaving, and since when (see POINTER_MOVE_HOLD_MS). */
-  let pointerHold: { panel: PanelId; moveSince: number | null; leaveSince: number | null } | null = null;
-  let pointerTimer: ReturnType<typeof setTimeout> | null = null;
   /**
    * What the user dismissed from one click's links (the anchor's `at`): every
    * link, or some panels. A later round for the same click must not bring
    * them back.
    */
   let linkDrops: { at: number; all: boolean; panels: Set<PanelId> } | null = null;
-  /** The size each panel had before the user made it bigger, so "Make smaller" puts it back (restoredSize). */
-  let sizeBeforeBigger: Partial<Record<PanelId, PanelSize>> = {};
   // Predictive flow (docs/predictive-flow.md).
   /** RecordCandidate id -> epoch ms when the user dismissed it from the Up next card. */
   let upNextDismissed: Record<string, number> = {};
@@ -567,21 +448,8 @@ export const useEngine = create<Engine>()((set, get) => {
   let switchIgnoreThrough = 0;
   /** The action event id of the Up next completion state the user dismissed (upNextDone). */
   let upNextDoneDismissed: number | null = null;
-  /**
-   * What the last "Back to" replaced, while its plan is on screen, so an
-   * Undo right after it brings all of it back (see undo): the plan, the
-   * view state (filters and selections), the link cues, the docked marks,
-   * the working goal, and the saved contexts. Bigger panels ride on the plan.
-   */
-  let restoreUndo: {
-    round: number;
-    plan: LayoutPlan;
-    view: PanelViewState;
-    links: LinkSet | null;
-    dismissed: EngineState["dismissed"];
-    working: WorkingGoal | null;
-    contexts: WorkingContext[];
-  } | null = null;
+  /** What the last "Back to" replaced, while its plan is on screen (BackToUndo; the undoBack hook reads it). */
+  let restoreUndo: BackToUndo | null = null;
   // Focus aid 1, "Fade panels that do not matter now" (docs/focus-aids.md).
   /** Each panel's low-relevance streak and the panels quiet by relevance, counted once per applied Jev round. */
   let quietTrack: QuietTrack = emptyQuietTrack();
@@ -642,184 +510,24 @@ export const useEngine = create<Engine>()((set, get) => {
   /** Numbers the simulated meetings, across resets, so an id is never reused. */
   let simSeq = 0;
 
-  const scheduler = new AdaptScheduler({
-    send: (args) => sendRequest(args),
-    onBusyChange: (busy) => set({ status: busy ? "thinking" : baseStatus }),
-  });
-
-  const statusNow = (): EngineStatus => (scheduler.busy ? "thinking" : baseStatus);
+  /** The undo's "Back to" state while an undo runs (hooks undoBack, undoing, undone). */
+  let undoFrom: BackToUndo | null = null;
+  /** What a settings change switched off, from settingsSet to the later settings hooks. */
+  let prepWentOff = false;
+  let linkFlowWentOff = false;
 
   /**
    * The front group, newest first, while "Move pinned and bigger panels to
    * the front" applies (moveToFrontOn: Adaptive on, not frozen, the setting
    * on); undefined otherwise, which keeps the older rules everywhere.
    */
-  const frontNow = (): PanelId[] | undefined => {
-    const s = get();
-    return moveToFrontOn(s.settings) ? frontGroup(s.front, s.pinned, s.bigger) : undefined;
-  };
-
-  const basePlan = (): LayoutPlan =>
-    traditionalPlan({ pinned: get().pinned, dismissed: get().dismissed, opened: manuallyOpened, bigger: get().bigger, front: frontNow() });
+  const frontOf = (s: EngineState): PanelId[] | undefined => (moveToFrontOn(s.settings) ? frontGroup(s.front, s.pinned, s.bigger) : undefined);
 
   const liveData = (): PolicyLiveData => {
     const s = get();
     return { invoices: s.data.invoices, messages: s.data.messages, projects: s.data.projects, view: s.view, focusedPanel: s.focusedPanel };
   };
 
-  // ----- the place step: explicit cells ---------------------------------------
-
-  /** The live anchor when it holds still (a command's hero goes to the front instead). */
-  function workAnchor(): AnchorRef | null {
-    const a = get().anchor;
-    return a && a.source !== "command" ? a : null;
-  }
-
-  /** The card under the pointer, when pointer holds may apply: on the canvas and not the anchor (which never moves). */
-  function pointerPanel(): PanelId | null {
-    const s = get();
-    const p = s.pointer.panel;
-    if (!p || p === workAnchor()?.panel) return null;
-    return s.plan.placements.some((x) => x.id === p) ? p : null;
-  }
-
-  /** Whether a pointer hold of this kind may still apply to `panel`: its cap has not run out. */
-  function holdOpen(panel: PanelId, kind: "move" | "leave", now: number): boolean {
-    const since = pointerHold?.panel === panel ? (kind === "move" ? pointerHold.moveSince : pointerHold.leaveSince) : null;
-    return since === null || now - since < (kind === "move" ? POINTER_MOVE_HOLD_MS : POINTER_LEAVE_HOLD_MS);
-  }
-
-  /** Remember the highest round set, so rounds keep counting up after a reset. */
-  function adopt(plan: LayoutPlan): void {
-    roundSeq = Math.max(roundSeq, plan.round ?? 0);
-  }
-
-  /**
-   * Whether a plan gets explicit cells: always with Adaptive on; with it off
-   * only while a panel is bigger, so "Make bigger" keeps its top edge there
-   * too (otherwise the fixed layout keeps the CSS flow, as before).
-   */
-  function packedLayout(plan: LayoutPlan): boolean {
-    return get().settings.adaptive || plan.placements.some((p) => p.bigger);
-  }
-
-  /** How to place a plan (PlaceOptions in @attune/core), plus the panel a pin or "Make bigger" sent to the front. */
-  interface PlaceOptions extends Lib.PlaceOptions<PanelId> {
-    /** The panel a pin or "Make bigger" sent to the front: setPlanDirect records it in EngineState.toFront with the plan, in one update. */
-    toFront?: PanelId;
-  }
-
-  /**
-   * The place step every plan goes through (placePlan in @attune/core): pack
-   * explicit cells with the anchor held still, keep the pointer's card from
-   * moving for a while, show the old size of any card whose cell was kept,
-   * re-mark what changed from the cells, and count the round. With Adaptive
-   * off the plan keeps the CSS flow, unless a panel is bigger (packedLayout).
-   * `heldMove` is the pointer's card when this plan kept it from moving.
-   */
-  function place(next: LayoutPlan, opts: PlaceOptions = {}): { plan: LayoutPlan; heldMove: PanelId | null } {
-    const s = get();
-    return placePlan({
-      ...opts,
-      current: s.plan,
-      next,
-      columns: s.columns,
-      packed: packedLayout(next),
-      anchor: s.anchor,
-      pointerPanel: pointerPanel(),
-      pointerMoveOpen: (ptr) => holdOpen(ptr, "move", Date.now()),
-      gather: (anchor) => gatherOrder(next, anchor),
-      roundSeq,
-      remark: remarkPanels,
-    });
-  }
-
-  // ----- the anchor ------------------------------------------------------------
-
-  function clearAnchorTimer(): void {
-    if (anchorTimer !== null) clearTimeout(anchorTimer);
-    anchorTimer = null;
-  }
-
-  /**
-   * Release the anchor. This does not re-plan: the next round without an
-   * anchor rebalances. The link cues stay ("stay" mode); they follow their
-   * panels and go only when the user clears them.
-   */
-  function releaseAnchor(): void {
-    clearAnchorTimer();
-    if (get().anchor) set({ anchor: null });
-    syncLinks();
-  }
-
-  function armAnchorTimer(): void {
-    clearAnchorTimer();
-    anchorTimer = setTimeout(() => {
-      anchorTimer = null;
-      if (get().anchor) set({ anchor: null });
-      syncLinks();
-    }, ANCHOR_IDLE_RELEASE_MS);
-  }
-
-  function setAnchor(ref: Omit<AnchorRef, "at" | "label">, now: number): void {
-    const label = anchorLabel(ref, get().data);
-    lastAnchorAt = Math.max(now, lastAnchorAt + 1);
-    set({ anchor: { ...ref, ...(label ? { label } : {}), at: lastAnchorAt } });
-    armAnchorTimer();
-    syncLinks();
-  }
-
-  /**
-   * A click or keystroke in a panel makes it the anchor (ANCHOR_TYPES; a
-   * panel_focus only from the pointer), and so does opening a panel from the
-   * dock. More work in the same panel on the same record or client keeps the
-   * anchor and only restarts the idle timer.
-   */
-  function noteWork(input: TrackInput, now: number): void {
-    if (!ANCHOR_TYPES.has(input.type)) return;
-    const s = get();
-    if (!s.settings.adaptive || s.settings.frozen) return;
-    const d = input.detail ?? {};
-    if (d.via === "suggestion" || d.via === "command") return;
-    if (input.type === "panel_focus" && d.via !== "pointer") return;
-    const pressed =
-      lastPress && CROSS_PANEL_TYPES.has(input.type) && d.via !== "keyboard" && now - lastPress.at <= ANCHOR_PRESS_WINDOW_MS && s.plan.placements.some((x) => x.id === lastPress?.panel)
-        ? lastPress.panel
-        : null;
-    const panel = pressed ?? (input.panel && isPanelId(input.panel) ? input.panel : null);
-    if (!panel) return;
-    const itemId = d.itemId;
-    const itemKind = d.itemKind ?? kindOfId(itemId);
-    const client = d.client ?? (input.type === "search" && d.query ? clientNamedIn(d.query) : undefined);
-    const cur = s.anchor;
-    if (cur && cur.source !== "command" && cur.panel === panel && (!itemId || itemId === cur.itemId) && (!client || client === cur.client)) {
-      armAnchorTimer();
-      return;
-    }
-    setAnchor({ panel, ...(itemKind && itemId ? { itemKind, itemId } : {}), ...(client ? { client } : {}), source: "work" }, now);
-  }
-
-  /** An applied command anchors its hero on the client and invoice it names. */
-  function setCommandAnchor(resolution: CommandResolution, panel: PanelId): void {
-    const s = get();
-    if (!s.settings.adaptive || s.settings.frozen) return;
-    const { client, invoiceId } = resolution.subject;
-    setAnchor({ panel, ...(invoiceId ? { itemKind: "invoice" as const, itemId: invoiceId } : {}), ...(client ? { client } : {}), source: "command" }, Date.now());
-  }
-
-  /**
-   * The user made `panel` bigger or smaller: that is what they just worked
-   * on, so it becomes the anchor for the change (it stays the same anchor,
-   * with its record and links, when it already is one), and the next rounds
-   * keep it and everything before it still.
-   */
-  function anchorResized(panel: PanelId, now: number): void {
-    const s = get();
-    if (!s.settings.adaptive || s.settings.frozen) return;
-    const cur = s.anchor;
-    if (cur && cur.source !== "command" && cur.panel === panel) armAnchorTimer();
-    else setAnchor({ panel, source: "work" }, now);
-  }
 
   // ----- the link cues (docs/anchored-relayout.md, "Links") --------------------
 
@@ -1093,38 +801,6 @@ export const useEngine = create<Engine>()((set, get) => {
     sentLink.clear();
   }
 
-  function clearPointerTimer(): void {
-    if (pointerTimer !== null) clearTimeout(pointerTimer);
-    pointerTimer = null;
-  }
-
-  /**
-   * After a round is set: remember whether it kept the pointer's card from
-   * moving or leaving, and re-plan when the cap runs out. A round that needed
-   * no hold ends it.
-   */
-  function notePointerHolds(move: PanelId | null, leave: PanelId | null): void {
-    const panel = move ?? leave;
-    if (!panel) {
-      pointerHold = null;
-      clearPointerTimer();
-      return;
-    }
-    const now = Date.now();
-    const h = pointerHold?.panel === panel ? pointerHold : { panel, moveSince: null, leaveSince: null };
-    h.moveSince = move ? (h.moveSince ?? now) : null;
-    h.leaveSince = leave ? (h.leaveSince ?? now) : null;
-    pointerHold = h;
-    const ends = [h.moveSince !== null ? h.moveSince + POINTER_MOVE_HOLD_MS : Infinity, h.leaveSince !== null ? h.leaveSince + POINTER_LEAVE_HOLD_MS : Infinity];
-    clearPointerTimer();
-    pointerTimer = setTimeout(
-      () => {
-        pointerTimer = null;
-        if (replanLocal()) noteDecisions(get().plan);
-      },
-      Math.max(0, Math.min(...ends) - now),
-    );
-  }
 
   // ----- predictive flow: Up next, Back to (docs/predictive-flow.md) ---------
 
@@ -1209,7 +885,7 @@ export const useEngine = create<Engine>()((set, get) => {
     set({ upNext: pick, upNextDone: done, queueMode: queue, metrics, taskDone });
     if (announce && taskDone) {
       // The engine's own note: left out of the snapshot (SIGNAL_PROFILE.cueOnly in snapshot.ts), no recent use, never a request.
-      trackInternal(
+      k.track(
         { type: "task_done", detail: { label: GOALS[taskDone.goal].label, ...(taskDone.next ? { task: taskDone.next.words } : {}) } },
         { schedule: false, anchor: false },
       );
@@ -1334,7 +1010,7 @@ export const useEngine = create<Engine>()((set, get) => {
     if (!backToOn(get().settings)) return;
     set({ contexts: addContext(get().contexts, ctx) });
     // The engine's own note: left out of the snapshot (SIGNAL_PROFILE.cueOnly in snapshot.ts), no recent use, never a request.
-    trackInternal({ type: "context_save", detail: { label: ctx.label } }, { schedule: false, anchor: false });
+    k.track({ type: "context_save", detail: { label: ctx.label } }, { schedule: false, anchor: false });
   }
 
   /**
@@ -1570,7 +1246,7 @@ export const useEngine = create<Engine>()((set, get) => {
     if (!prepOffered.has(meeting.id)) {
       prepOffered.add(meeting.id);
       // The engine's own note: left out of the snapshot (SIGNAL_PROFILE.cueOnly in snapshot.ts), no recent use, never a request.
-      trackInternal(
+      k.track(
         { type: "prep_offer", detail: { itemKind: "event", itemId: meeting.id, ...(meeting.client ? { client: meeting.client } : {}), label: eventLabel(meeting, now) } },
         { schedule: false, anchor: false },
       );
@@ -1657,7 +1333,7 @@ export const useEngine = create<Engine>()((set, get) => {
     const first = s.prep?.stage !== "ready" || !s.prep.panels?.length;
     let plan = withPrepSuggestion(buildPrepPlan(s.plan, { anchor, order, relations, title: meeting.title }));
     if (first && plan.suggestions.some((x) => x.meetingNotes)) plan = { ...plan, decisions: [...plan.decisions, { kind: "suggest", text: `Suggested: ${PREP_NOTES_LABEL}` }] };
-    setPlanDirect(plan, s.settings.frozen ? { holdAll: true } : {});
+    k.setPlanDirect(plan, s.settings.frozen ? { holdAll: true } : {});
     const placed = get().plan;
     const on = new Set(placed.placements.map((p) => p.id));
     const shown: LinkSet["relations"] = {};
@@ -1712,137 +1388,14 @@ export const useEngine = create<Engine>()((set, get) => {
 
   /** Notes on the canvas with room to write: opened from the dock when needed (as from a suggestion), and at least standard size, its top edge kept. */
   function showNotes(): void {
-    openPanel("notes", "suggestion");
+    k.openPanel("notes", "suggestion");
     const plan = get().plan;
     const p = plan.placements.find((x) => x.id === "notes");
     if (!p || SIZE_RANK[p.size] >= SIZE_RANK.standard) return;
-    setPlanDirect({ ...plan, placements: plan.placements.map((x) => (x.id === "notes" ? withoutQuiet({ ...x, size: "standard" }) : x)), decisions: [] }, { userResized: "notes" });
+    k.setPlanDirect({ ...plan, placements: plan.placements.map((x) => (x.id === "notes" ? withoutQuiet({ ...x, size: "standard" }) : x)), decisions: [] }, { userResized: "notes" });
   }
 
-  // ----- plan commits ------------------------------------------------------
 
-  function clearHeld(): void {
-    if (heldTimer !== null) {
-      clearTimeout(heldTimer);
-      heldTimer = null;
-    }
-  }
-
-  function setPlanDirect(next: LayoutPlan, opts: PlaceOptions = {}): void {
-    const s = get();
-    const plan = place(next, opts).plan;
-    adopt(plan);
-    // With the plan, so the canvas never renders the move without knowing it is one (it follows it instead of holding the anchor still).
-    const front: Partial<EngineState> = opts.toFront ? { toFront: { panel: opts.toFront, round: plan.round ?? 0, at: ++frontSeq } } : {};
-    if (planSignature(plan) === planSignature(s.plan)) {
-      set({ plan, mode: plan.mode, ...front });
-      syncLinks();
-      return;
-    }
-    clearHeld();
-    lastPlanChangeAt = Date.now();
-    set({ previousPlan: s.plan, plan, mode: plan.mode, ...front });
-    syncLinks();
-  }
-
-  /** True while the user's keyboard focus or pointer (right after a manual edit) is on the canvas. */
-  function canvasHeld(now: number): boolean {
-    return keyboardOnCanvas || (pointerOnCanvas && now < manualHoldUntil);
-  }
-
-  function armCanvasTimer(now: number): void {
-    if (canvasTimer !== null) clearTimeout(canvasTimer);
-    canvasTimer = null;
-    // The keyboard hold ends when focus leaves; only the pointer hold has a time cap.
-    if (!keyboardOnCanvas && pointerOnCanvas && manualHoldUntil > now) {
-      canvasTimer = setTimeout(() => {
-        canvasTimer = null;
-        releaseCanvas();
-      }, manualHoldUntil - now);
-    }
-  }
-
-  /** Apply what waited for a canvas hold, once no hold remains. */
-  function releaseCanvas(): void {
-    const now = Date.now();
-    if (canvasHeld(now)) {
-      armCanvasTimer(now);
-      return;
-    }
-    if (canvasTimer !== null) {
-      clearTimeout(canvasTimer);
-      canvasTimer = null;
-    }
-    if (!canvasDeferred) return;
-    canvasDeferred = false;
-    const s = get();
-    if (catchupTraditional) {
-      catchupTraditional = false;
-      if (!s.settings.adaptive || !s.last) {
-        setPlanDirect(basePlan());
-        return;
-      }
-    }
-    if (replanLocal()) noteDecisions(get().plan);
-  }
-
-  /**
-   * Apply a policy plan, respecting the minimum change interval unless forced.
-   * A plan that changes nothing visible is applied quietly (fresh priorities
-   * and reasons for the inspector) and does not count as a change.
-   */
-  function commit(raw: LayoutPlan, opts: { force?: boolean; skipQuiet?: boolean; leaveHeld?: PanelId | null } = {}): "applied" | "quiet" | "held" {
-    const s = get();
-    // Commands skip pointer holds: the user asked, and the hero goes to the front.
-    const { plan: next, heldMove } = place(raw, { pointerHolds: !opts.force });
-    const holds = opts.force ? { move: null, leave: null } : { move: heldMove, leave: opts.leaveHeld ?? null };
-    if (planSignature(next) === planSignature(s.plan)) {
-      // Frequent local re-plans (scroll, dwell) skip no-op updates to avoid needless renders.
-      if (!opts.skipQuiet) {
-        adopt(next);
-        // A panel can go quiet without a layout change (it only fades): count it too.
-        set({ plan: next, mode: next.mode, metrics: metricsOnQuietWent(get().metrics, newlyQuiet(s.plan, next)) });
-        syncLinks();
-        notePointerHolds(holds.move, holds.leave);
-      }
-      return "quiet";
-    }
-    const now = Date.now();
-    if (!opts.force && canvasHeld(now)) {
-      // Keyboard focus is moving through the canvas, or the pointer just
-      // edited it: wait until the user's hands leave, then re-plan.
-      clearHeld();
-      canvasDeferred = true;
-      armCanvasTimer(now);
-      return "held";
-    }
-    // Clamp in case the system clock moved backward.
-    if (lastPlanChangeAt > now) lastPlanChangeAt = now;
-    if (undoHoldUntil > now + UNDO_HOLD_MS) undoHoldUntil = now + UNDO_HOLD_MS;
-    const readyAt = Math.max(lastPlanChangeAt + s.settings.minChangeIntervalMs, undoHoldUntil);
-    if (!opts.force && now < readyAt) {
-      clearHeld();
-      // Re-plan when the interval passes, from whatever judgments are newest then.
-      heldTimer = setTimeout(() => {
-        heldTimer = null;
-        const applied = replanLocal();
-        if (applied) noteDecisions(get().plan);
-      }, readyAt - now);
-      return "held";
-    }
-    clearHeld();
-    lastPlanChangeAt = now;
-    adopt(next);
-    // A new round is one layout change for the Metrics tab (a suggestion-only update keeps the round).
-    const moved = (next.round ?? 0) !== (s.plan.round ?? 0);
-    const metrics = metricsOnQuietWent(moved ? metricsOnLayoutChange(get().metrics) : get().metrics, newlyQuiet(s.plan, next));
-    set({ previousPlan: s.plan, plan: next, mode: next.mode, metrics });
-    syncLinks();
-    notePointerHolds(holds.move, holds.leave);
-    return "applied";
-  }
-
-  /** Panels quiet in `next` that were not quiet in `current`, for the Metrics tab. */
   function newlyQuiet(current: LayoutPlan, next: LayoutPlan): number {
     const before = new Set(current.placements.filter((p) => p.quiet).map((p) => p.id));
     return next.placements.filter((p) => p.quiet && !before.has(p.id)).length;
@@ -1907,16 +1460,16 @@ export const useEngine = create<Engine>()((set, get) => {
   function applyFadeQuiet(on: boolean): void {
     const s = get();
     if (!s.settings.adaptive) return;
-    if (!on) releaseAnchor();
+    if (!on) k.releaseAnchor();
     if (!s.settings.frozen && s.last && !contextHold) {
-      replanLocal({ force: true });
+      k.replanLocal({ force: true });
       return;
     }
     if (on || !s.plan.placements.some((p) => p.quiet)) return;
     const placements = get().plan.placements.map((p) =>
       p.quiet ? withoutQuiet({ ...p, size: p.unquietSize ?? p.size, reason: p.pinned ? "Pinned by you" : "Part of your workspace" }) : p,
     );
-    setPlanDirect({ ...get().plan, placements });
+    k.setPlanDirect({ ...get().plan, placements });
   }
 
   /**
@@ -1925,219 +1478,15 @@ export const useEngine = create<Engine>()((set, get) => {
    * placeholder is filled: a later local re-plan from the same judgments must
    * not overwrite the decisions that round really made.
    */
-  function noteDecisions(plan: LayoutPlan): void {
-    const history = get().history;
-    const i = history.findIndex(
-      (r) => r.version === plan.basedOnVersion && !r.stale && r.decisions.length === 1 && r.decisions[0].kind === "hold" && r.decisions[0].text === HELD_TEXT,
-    );
-    if (i === -1) return;
-    const next = [...history];
-    next[i] = { ...next[i], decisions: plan.decisions };
-    set({ history: next });
-  }
 
-  /** The command hold, if it still applies to a plan computed from `res`. */
-  function activeCommandHold(res: AdaptResponse, now: number): typeof commandHold {
-    const h = commandHold;
-    if (!h) return null;
-    const s = get();
-    if (now - h.at > COMMAND_HOLD_MS || res.version > h.version || s.dismissed[h.panel] != null) {
-      commandHold = null;
-      return null;
-    }
-    return h;
-  }
-
-  /** What the last undo asked not to repeat, while the judgments stay the same. */
-  function undoAvoid(res: AdaptResponse, now: number): PolicyInput["avoid"] {
-    if (!undone) return undefined;
-    if (now - undone.at > UNDO_MEMORY_MS || judgmentsDifferMaterially(undone.judgments, res.judgments)) {
-      undone = null;
-      return undefined;
-    }
-    return undone.avoid;
-  }
-
-  /**
-   * The policy's plan from `res`, built around the live anchor and the
-   * records joined to it. With `holds`, the card under the pointer waits to
-   * leave (POINTER_LEAVE_HOLD_MS); `leaveHeld` says it did.
-   */
-  function policyPlan(res: AdaptResponse, opts: { holds?: boolean } = {}): { plan: LayoutPlan; leaveHeld: PanelId | null } {
-    const s = get();
-    const now = Date.now();
-    const avoid = undoAvoid(res, now);
-    const anchor = s.anchor;
-    const held = linkHold();
-    // Only records the panels show now: a filter or date range that hides them would leave a tag with nothing to tint.
-    // A prep view's anchor (focus aid 4) links the records it chose, not every record of the client.
-    const linked = anchor ? (prepLinked(anchor) ?? findLinked(anchor, s.data, { view: s.view, now })) : undefined;
-    const quiet = quietNow(now);
-    const front = frontNow();
-    const habit = habitHintsNow(now);
-    const input: PolicyInput = {
-      judgments: res.judgments,
-      version: res.version,
-      previous: withGrid(s.plan, get().columns),
-      events: s.events,
-      now,
-      weights: s.settings.weights,
-      pinned: s.pinned,
-      dismissed: s.dismissed,
-      focusedPanel: s.focusedPanel,
-      recentModes,
-      recentDensities,
-      ...(avoid ? { avoid } : {}),
-      ...(anchor && linked ? { anchor, linked } : {}),
-      ...(held ? { linkHold: held } : {}),
-      ...(s.bigger.length > 0 ? { bigger: s.bigger } : {}),
-      ...(quiet.length > 0 ? { quiet } : {}),
-      ...(front ? { front } : {}),
-      ...(habit ? { habit } : {}),
-    };
-    let plan = computePlan(input, liveData());
-    let leaveHeld: PanelId | null = null;
-    const ptr = opts.holds ? pointerPanel() : null;
-    if (ptr && !plan.placements.some((p) => p.id === ptr) && holdOpen(ptr, "leave", now)) {
-      plan = computePlan({ ...input, hold: [ptr] }, liveData());
-      leaveHeld = ptr;
-    }
-    // The next step's action once its record is open, or the check-off follow-up, leads the suggestions (a command's still goes first).
-    plan = withLinkSuggestion(plan);
-    // Focus aid 4: "Start meeting notes" after Prepare, until pressed or dismissed.
-    plan = withPrepSuggestion(plan);
-    // Re-reading the command round's own judgments must not undo the command.
-    const hold = activeCommandHold(res, now);
-    if (hold) {
-      plan = applyPromotion({ plan, previous: s.plan, panel: hold.panel, pinned: s.pinned, bigger: s.bigger, ...(held ? { linkHold: held } : {}), ...(front ? { front } : {}) });
-      if (hold.suggestion) plan = addSuggestion(plan, hold.suggestion, { announce: !s.plan.suggestions.some((x) => sameSuggestion(x, hold.suggestion!)) });
-    }
-    return { plan, leaveHeld };
-  }
-
-  /** Re-plan from the last judgments without asking Jev. Returns true when the plan changed. */
-  function replanLocal(opts: { force?: boolean; skipQuiet?: boolean } = {}): boolean {
-    const s = get();
-    if (!s.settings.adaptive) {
-      // The traditional layout depends only on pins, dismissals, and opened panels.
-      if (opts.skipQuiet) return false;
-      setPlanDirect(traditionalPlan({ pinned: s.pinned, dismissed: s.dismissed, opened: manuallyOpened, bigger: s.bigger }));
-      return true;
-    }
-    if (s.settings.frozen || !s.last) return false;
-    // A layout the user went "Back to" stays until they do new work.
-    if (contextHold && !opts.force) return false;
-    const { plan, leaveHeld } = policyPlan(s.last, { holds: !opts.force });
-    return commit(plan, { ...opts, leaveHeld }) === "applied";
-  }
-
-  /**
-   * After a pointer rest, a scroll, or a shortcut: refresh the suggestions
-   * from the last judgments, but never move, resize, add, or dock a panel.
-   * Those passive signals say little about the work, and a full re-plan from
-   * them reshuffled the canvas (and undid commands) with no new information.
-   * The next Jev round reads them as usual.
-   */
-  function refreshPassive(): void {
-    const s = get();
-    // After "Back to", the last judgments are about the work left behind; their suggestions wait for new work too.
-    if (!s.settings.adaptive || s.settings.frozen || !s.last || contextHold) return;
-    const fresh = policyPlan(s.last).plan.suggestions;
-    const key = (list: Suggestion[]) => list.map(suggestionIdentity).join(",");
-    if (key(fresh) === key(s.plan.suggestions)) return;
-    const before = new Set(s.plan.suggestions.map(suggestionIdentity));
-    const decisions: Decision[] = fresh.filter((x) => !before.has(suggestionIdentity(x))).map((x) => ({ kind: "suggest", text: `Suggested: ${x.label}` }));
-    set({ plan: { ...s.plan, suggestions: fresh, decisions } });
-  }
-
-  /**
-   * Pin, unpin, dismiss, open, and "Make bigger" or "Make smaller" always
-   * take effect at once. With judgments, the click changes only that panel
-   * now (a pin also moves it to the front, where the policy puts pins; a
-   * resized panel keeps its top edge and the cards in its way move), and the
-   * policy catches up at its normal pace. A forced full re-plan here made one
-   * click reshuffle the rest of the canvas, for example sending Team to the
-   * dock also docked Clients.
-   *
-   * With the pointer on the canvas, nothing else moves until it leaves: not
-   * even the pinned card goes to the front, so the next click does not land
-   * on a card that slid in under the pointer. A resize still moves the cards
-   * in its way (the user asked for the room), and the catch-up waits the same way.
-   *
-   * With "Move pinned and bigger panels to the front" on (docs/focus-aids.md),
-   * a pin or "Make bigger" instead sends the panel to the first cell at once,
-   * the front group in its order behind it and the other cards reflowing, even
-   * with the pointer on the canvas: the user just asked for it. Only the
-   * catch-up still waits for the pointer. Unpin and "Make smaller" stay in place.
-   */
-  function manualReplan(edit: PlanEdit): void {
-    const { kind, panel } = edit;
-    const s = get();
-    const now = Date.now();
-    // The front group, this panel first (trackInternal just put it there), when the move to the front applies.
-    const front = kind === "pin" || kind === "bigger" ? frontNow() : undefined;
-    // Bringing a quiet panel back to the size it had is a resize too: its top edge stays and the cards in its way move.
-    const target = s.plan.placements.find((x) => x.id === panel);
-    const grows = kind === "unquiet" && target?.unquietSize !== undefined && target.unquietSize !== target.size;
-    const userResized = !front && (kind === "bigger" || kind === "smaller" || grows) ? panel : null;
-    // A resized panel, or one made bigger at the front, is the anchor for its change (anchorResized set it), so its round plays the anchor's stages.
-    const anchors = userResized !== null || (front !== undefined && kind === "bigger");
-    const edited = (plan: LayoutPlan, opts: { pinsFirst?: boolean; front?: PanelId[] } = {}): LayoutPlan => {
-      const next = editPlan(plan, edit, opts);
-      return anchors ? anchoredOn(next, get().anchor) : next;
-    };
-    const inPlace: PlaceOptions = userResized ? { userResized } : { holdAll: true };
-    const toFront: PlaceOptions = { reflow: true, toFront: panel };
-    if (s.settings.frozen && s.settings.adaptive) {
-      // Frozen: apply the edit without moving anything else.
-      setPlanDirect(edited(s.plan), inPlace);
-      return;
-    }
-    // An open comes from the dock and appends at the end, so nothing slides under the pointer.
-    if (pointerOnCanvas && kind !== "open") {
-      setPlanDirect(front ? edited(s.plan, { front }) : edited(s.plan), front ? toFront : inPlace);
-      manualHoldUntil = now + MANUAL_EDIT_HOLD_MS;
-      canvasDeferred = true;
-      catchupTraditional = !s.settings.adaptive || !s.last;
-      armCanvasTimer(now);
-      return;
-    }
-    // Only the edited card changes: the rest keep their cells, except that a
-    // pin moves to the front, where the user asked for it.
-    const placeOpts: PlaceOptions = front ? toFront : kind === "pin" ? { reflow: true } : inPlace;
-    if (!s.settings.adaptive || !s.last) {
-      // Traditional layout, or no judgments yet (the canvas is still the traditional one).
-      const base = traditionalPlan({ pinned: s.pinned, dismissed: s.dismissed, opened: manuallyOpened, bigger: s.bigger, front });
-      setPlanDirect(anchors ? anchoredOn(base, get().anchor) : base, placeOpts);
-    } else {
-      setPlanDirect(edited(s.plan, front ? { front } : { pinsFirst: kind === "pin" }), placeOpts);
-      const placed = get().plan;
-      replanLocal(); // Held until the minimum change interval passes.
-      // A catch-up that agrees with a resize applies quietly in the same tick;
-      // it must not wipe "Made Invoices bigger" and the card badges before they show.
-      const caught = get().plan;
-      if ((userResized || front) && caught !== placed && planSignature(caught) === planSignature(placed)) {
-        const change = new Map(placed.placements.map((p) => [p.id, p.change]));
-        set({ plan: { ...caught, decisions: placed.decisions, placements: caught.placements.map((p) => ({ ...p, change: change.get(p.id) ?? null })) } });
-      }
-    }
-  }
-
-  // ----- requests ----------------------------------------------------------
-
-  function pushHistory(record: AdaptationRecord): void {
-    set({ history: [...get().history, record].slice(-HISTORY_LIMIT) });
-  }
-
-  /** Remember which working goal request `v` asked about (noteDoneRound). Only the newest few are kept: an answer older than that is stale anyway. */
   function rememberSent(v: number, working: WorkingGoal | null): void {
     sentWorking.set(v, working);
     for (const key of sentWorking.keys()) if (key < v - HISTORY_LIMIT) sentWorking.delete(key);
   }
 
-  async function sendRequest({ trigger, kind, signal, command }: SendArgs): Promise<void> {
-    const s = get();
-    const now = Date.now();
+
+  /** The demo's request: the snapshot with the panel views and habits, the candidates, the working goal, and the link question. */
+  function buildRequest(s: EngineState, { now, version, kind, command }: { now: number; version: number; kind: string; command?: string }): AdaptRequest {
     // Focus aid 3: the habits, only with the aid on: the usual next panel's records move up, and at most two habits in words.
     const habitsNow = habitsOn(s.settings);
     const habitPanel = topNextPanel(habitHintsNow(now));
@@ -2159,7 +1508,7 @@ export const useEngine = create<Engine>()((set, get) => {
     // "Arrange linked panels by next step": the clicked record and its linked records, once per click (not with a command).
     const link = kind === "command" ? null : linkRequestNow(now);
     if (link && s.anchor) rememberLink(version, s.anchor.at, link);
-    const request: AdaptRequest = {
+    return {
       version,
       snapshot: buildSnapshot(s.events, {
         now,
@@ -2173,20 +1522,6 @@ export const useEngine = create<Engine>()((set, get) => {
       ...(working ? { workingGoal: { label: GOALS[working.goal].label, description: GOALS[working.goal].description } } : {}),
       ...(link ? { link } : {}),
     };
-    let response: AdaptResponse;
-    try {
-      response = await postAdapt(request, { signal });
-    } catch (err) {
-      if (isAbortError(err)) return; // Replaced by a newer request, or reset.
-      baseStatus = "error";
-      set({ lastError: messageOf(err), status: statusNow() });
-      if (kind === "command" && command) {
-        set({ command: { text: command, status: "unclear", options: [], message: commandFailureMessage(err) } });
-      }
-      return;
-    }
-    if (signal.aborted) return;
-    handleResponse(response, trigger, kind, command);
   }
 
   function applyViewPatches(patches: ViewPatch[]): void {
@@ -2198,318 +1533,6 @@ export const useEngine = create<Engine>()((set, get) => {
     set({ view });
   }
 
-  function addSuggestion(plan: LayoutPlan, s: Suggestion, opts: { announce?: boolean } = {}): LayoutPlan {
-    const others = plan.suggestions
-      .filter((x) => x.actionId !== s.actionId)
-      .map((x) => (x.prominence === "primary" ? { ...x, prominence: "subtle" as const } : x));
-    const decision: Decision = { kind: "suggest", text: `Suggested: ${s.label}`, evidence: `command action ${s.actionId} p=${s.confidence.toFixed(2)}` };
-    const skip = opts.announce === false || plan.decisions.some((d) => d.kind === "suggest" && d.text === decision.text);
-    return { ...plan, suggestions: [s, ...others], decisions: skip ? plan.decisions : [...plan.decisions, decision] };
-  }
-
-  /**
-   * "idle" for Jev, "offline" for the designed no-key mode, "error" only for a
-   * real failure. Before, every heuristic answer carried meta.error, so the
-   * no-key mode showed a red Error after the first click.
-   */
-  function statusFrom(res: AdaptResponse): Exclude<EngineStatus, "thinking"> {
-    if (res.source === "jev") return "idle";
-    if (res.meta?.fallback === "no_key") return "offline";
-    return res.meta?.error ? "error" : "offline";
-  }
-
-  function handleResponse(res: AdaptResponse, trigger: string, kind: SendArgs["kind"], commandText: string | undefined): void {
-    const now = Date.now();
-    const stale = res.version <= lastAppliedVersion;
-
-    // A command's outcome matters even if its layout judgments are old: the user asked.
-    let resolution: CommandResolution | null = null;
-    if (kind === "command" && commandText) {
-      const cj = res.judgments.command;
-      if (cj) {
-        lastCommand = { text: commandText, judgments: cj };
-        const s = get();
-        resolution = resolveCommand(cj, commandText, { invoices: s.data.invoices, messages: s.data.messages, projects: s.data.projects, view: s.view });
-        // A command to another area saves the current working context first, before its filters land.
-        if (resolution.promote && resolution.outcome.status === "applied") noteCommandSwitch(resolution.promote);
-        applyViewPatches(resolution.viewPatches);
-        set({
-          command: resolution.outcome,
-          // Asking for a panel overrides an earlier dismissal of it.
-          ...(resolution.promote ? { dismissed: without(get().dismissed, resolution.promote) } : {}),
-        });
-        if (resolution.promote) {
-          // Log the jump so usage and recency count the panel the user asked
-          // for. The command round already judged it, so no new request.
-          trackInternal({ type: "panel_focus", panel: resolution.promote, detail: { via: "command" } }, { schedule: false });
-        }
-      } else {
-        set({ command: { text: commandText, status: "unclear", options: [], message: "Could not understand that. Try other words." } });
-      }
-    }
-
-    if (stale) {
-      pushHistory({ version: res.version, at: now, trigger, response: res, decisions: [], stale: true });
-      if (resolution) applyCommandLayout(resolution, null);
-      return;
-    }
-
-    // An unclear command says nothing about the work, but the round's other
-    // judgments read its stray text: "banana smoothie recipe" rated every
-    // panel useless and docked all but two. Keep the layout and the last good
-    // judgments (`last`), so later local re-plans do not use this round either.
-    // A "Did you mean" is treated the same until the user picks an option.
-    if (kind === "command" && (!resolution || resolution.outcome.status !== "applied")) {
-      lastAppliedVersion = res.version;
-      baseStatus = statusFrom(res);
-      set({ lastError: res.meta?.error ?? null, status: statusNow() });
-      const confirm = resolution?.outcome.status === "confirm";
-      const hold: Decision = { kind: "hold", text: confirm ? "Kept the layout until you pick what the command meant" : "Kept the layout because the command was unclear" };
-      const decisions: Decision[] = [hold];
-      // A confident action still shows while the user picks the panel.
-      if (confirm && resolution?.suggestion) {
-        const next = addSuggestion({ ...get().plan, decisions: [] }, resolution.suggestion);
-        setPlanDirect(next, { holdAll: true });
-        decisions.push(...next.decisions);
-      }
-      pushHistory({ version: res.version, at: now, trigger, response: res, decisions, stale: false });
-      return;
-    }
-
-    lastAppliedVersion = res.version;
-    // A newer round replaces the command round's judgments, and with them the command hold.
-    if (commandHold && res.version > commandHold.version) commandHold = null;
-    // Did the work really change? Before this round's layout lands, so a saved context is the one before the switch.
-    // A command round's goal still reads the activity before the command, so the command alone decides that round.
-    if (!resolution?.promote) noteGoalRound(res);
-    // Focus aid 2: one more goal-done round for the working context, now that this round's goal switch (if any) has landed.
-    noteDoneRound(res);
-    // The next step Jev read from the click, before this round's layout gathers its linked panels.
-    noteLinkAnswer(res);
-    const judgedMode = res.judgments.layout?.choice;
-    if (judgedMode) recentModes = [...recentModes, judgedMode].slice(-RECENT_MODES_LIMIT);
-    const density = judgedDensity(
-      res.judgments.expertise,
-      get().events.filter((e) => e.type !== "panel_dwell" && e.type !== "context_save" && e.type !== "setting_change" && e.type !== "task_done" && e.type !== "prep_offer").length,
-    );
-    if (density) recentDensities = [...recentDensities, density].slice(-RECENT_DENSITIES_LIMIT);
-    baseStatus = statusFrom(res);
-    // One more round for the quiet rule (focus aid 1). Counted even with the aid off, so turning it on uses what Jev said.
-    quietTrack = countQuietRound(quietTrack, res.judgments.relevance, res.version);
-    const goal = res.judgments.goal;
-    set({
-      last: res,
-      goal: goal ? { id: goal.choice, confidence: goal.confidence } : null,
-      lastError: res.meta?.error ?? null,
-      status: statusNow(),
-    });
-
-    // What this round predicts the user opens and does next, for the Metrics tab.
-    judgedAt = now;
-    const code = flowState(now).listNext[0] ?? null;
-    set({ metrics: recordRoundPrediction(get().metrics, { nextRecord: res.judgments.nextRecord, codePick: code, nextAction: res.judgments.nextAction }) });
-
-    if (resolution?.promote) setCommandAnchor(resolution, resolution.promote);
-    const decisions = applyCommandLayout(resolution, res);
-    pushHistory({ version: res.version, at: now, trigger, response: res, decisions, stale: false });
-    refreshFlow();
-  }
-
-  /** Lay out after a response (and a command, if any). Returns the decisions for history. */
-  function applyCommandLayout(resolution: CommandResolution | null, res: AdaptResponse | null): Decision[] {
-    const s = get();
-    const adaptiveLayout = s.settings.adaptive && !s.settings.frozen;
-
-    if (!adaptiveLayout || !res) {
-      // Traditional or frozen layout (or old judgments): only open what the user asked for.
-      // Start from no decisions, so the change feed does not replay the last change.
-      let plan: LayoutPlan = { ...s.plan, decisions: [] };
-      let changed = false;
-      if (resolution?.promote && !plan.placements.some((p) => p.id === resolution.promote)) {
-        if (!s.settings.adaptive) {
-          if (!manuallyOpened.includes(resolution.promote)) manuallyOpened = [...manuallyOpened, resolution.promote];
-          plan = traditionalPlan({ pinned: s.pinned, dismissed: without(s.dismissed, resolution.promote), opened: manuallyOpened, bigger: s.bigger });
-          set({ dismissed: without(s.dismissed, resolution.promote) });
-        } else {
-          plan = editPlan(plan, { kind: "open", panel: resolution.promote });
-        }
-        if (resolution.decision) plan = { ...plan, decisions: [resolution.decision, ...plan.decisions] };
-        changed = true;
-      }
-      if (resolution?.suggestion) {
-        plan = addSuggestion(plan, resolution.suggestion);
-        changed = true;
-      }
-      if (changed) setPlanDirect(plan, { holdAll: true });
-      return changed ? plan.decisions : [];
-    }
-
-    // A layout the user went "Back to" holds against Jev rounds until new work (a command is new work and ended it).
-    if (contextHold && !resolution?.promote && !resolution?.suggestion) return [{ kind: "hold", text: CONTEXT_HOLD_TEXT }];
-    // Commands skip the minimum change interval and the pointer holds.
-    const force = Boolean(resolution?.promote || resolution?.suggestion);
-    const { plan: base, leaveHeld } = policyPlan(res, { holds: !force });
-    let next = base;
-    if (resolution?.promote) {
-      const held = linkHold();
-      const front = frontNow();
-      next = applyPromotion({
-        plan: next,
-        previous: s.plan,
-        panel: resolution.promote,
-        pinned: s.pinned,
-        bigger: s.bigger,
-        ...(resolution.decision ? { decision: resolution.decision } : {}),
-        ...(held ? { linkHold: held } : {}),
-        ...(front ? { front } : {}),
-      });
-    }
-    if (resolution?.suggestion) {
-      next = addSuggestion(next, resolution.suggestion);
-    }
-    if (resolution?.promote && planSignature(place(next).plan) === planSignature(s.plan)) {
-      // Nothing visible changes: say so quietly instead of "Layout changed"
-      // with an Undo that would revert an earlier, unrelated change.
-      next = { ...next, decisions: [{ kind: "hold", text: `Already showing ${panelTitle(resolution.promote)}` }] };
-    }
-    const result = commit(next, { force, leaveHeld });
-    if (resolution?.promote) commandHold = { panel: resolution.promote, version: res.version, at: Date.now(), suggestion: resolution.suggestion };
-    if (result === "held") return [{ kind: "hold", text: HELD_TEXT }];
-    return next.decisions;
-  }
-
-  // ----- tracking ------------------------------------------------------------
-
-  function trackInternal(input: TrackInput, opts: { schedule?: boolean; anchor?: boolean } = {}): void {
-    const s = get();
-    const now = Date.now();
-    const event: SignalEvent = { ...input, id: ++eventSeq, t: now, text: describeEvent(input) };
-    version += 1;
-    const p = input.panel && isPanelId(input.panel) ? input.panel : undefined;
-    // Keyboard focus alone (Tab) does not ask Jev: tabbing through the canvas
-    // re-planned it under the keyboard, and Tab looped between two panels.
-    const focusChanged = input.type === "panel_focus" && input.detail?.via !== "keyboard" && p !== undefined && p !== lastWorkPanel(s.events);
-
-    // Focus aid 1: using a quiet panel brings it back (a manual edit), and when
-    // it showed faded that counts as a reopen, a sign the fade was wrong.
-    const touched = p !== undefined && isQuietTouch(input);
-    const quietPlacement = touched ? s.plan.placements.find((x) => x.id === p && x.quiet) : undefined;
-    const reopened = quietPlacement !== undefined && showsQuiet(quietPlacement, input.type === "panel_focus" ? p : undefined);
-    if (touched) quietTrack = touchQuiet(quietTrack, p);
-
-    const counted = metricsOnEvent(s.metrics, event, s.upNext?.candidate.id ?? null);
-    // Focus aid 4: a record the prep view linked, opened for the first time this session.
-    const prepOpen = input.type === "item_open" || input.type === "up_next_open" ? prepRecordOpened(input) : null;
-    const firstPrepOpen = prepOpen !== null && !prepOpened.has(prepOpen);
-    if (prepOpen !== null) prepOpened.add(prepOpen);
-    const withReopen = reopened ? metricsOnQuietReopened(counted) : counted;
-    const patch: Partial<EngineState> = {
-      events: [...s.events, event].slice(-EVENT_LOG_LIMIT),
-      metrics: firstPrepOpen ? metricsOnPrepOpened(withReopen) : withReopen,
-    };
-    let pinsChanged = false;
-    let biggerChanged = false;
-    /** "Make smaller": the size to go back to, read before the remembered size is dropped. */
-    let smallerSize: PanelSize | undefined;
-    if (p) {
-      switch (input.type) {
-        case "panel_pin":
-          if (!s.pinned.includes(p)) {
-            patch.pinned = [...s.pinned, p];
-            // The newest pin or "Make bigger" leads the front group (kept whatever the setting, so switching it on uses the real order).
-            patch.front = [p, ...s.front.filter((x) => x !== p)];
-            pinsChanged = true;
-          }
-          patch.dismissed = without(s.dismissed, p);
-          break;
-        case "panel_unpin":
-          if (s.pinned.includes(p)) {
-            patch.pinned = s.pinned.filter((x) => x !== p);
-            pinsChanged = true;
-          }
-          break;
-        case "panel_dismiss":
-          patch.dismissed = { ...s.dismissed, [p]: now };
-          // Dismissing a pinned panel unpins it; otherwise the pin would keep it on screen.
-          if (s.pinned.includes(p)) {
-            patch.pinned = s.pinned.filter((x) => x !== p);
-            pinsChanged = true;
-          }
-          if (s.focusedPanel === p) patch.focusedPanel = null;
-          manuallyOpened = manuallyOpened.filter((x) => x !== p);
-          if (commandHold?.panel === p) commandHold = null;
-          // Docking a panel the user made bigger clears that too.
-          if (s.bigger.includes(p)) {
-            patch.bigger = s.bigger.filter((x) => x !== p);
-            biggerChanged = true;
-          }
-          delete sizeBeforeBigger[p];
-          break;
-        case "panel_maximize":
-          if (!s.bigger.includes(p)) {
-            patch.bigger = [...s.bigger, p];
-            patch.front = [p, ...s.front.filter((x) => x !== p)];
-            biggerChanged = true;
-            const was = s.plan.placements.find((x) => x.id === p)?.size;
-            if (was) sizeBeforeBigger[p] = was;
-          }
-          break;
-        case "panel_restore":
-          if (s.bigger.includes(p)) {
-            patch.bigger = s.bigger.filter((x) => x !== p);
-            biggerChanged = true;
-          }
-          smallerSize = restoredSize(s.plan, p, sizeBeforeBigger[p]);
-          delete sizeBeforeBigger[p];
-          break;
-        case "panel_open":
-          patch.dismissed = without(s.dismissed, p);
-          if (!manuallyOpened.includes(p)) manuallyOpened = [...manuallyOpened, p];
-          break;
-        case "panel_focus":
-        case "item_open":
-        case "up_next_open":
-        case "task_start":
-          patch.focusedPanel = p;
-          break;
-        default:
-          break;
-      }
-    }
-    set(patch);
-    // Focus aid 3: learn from the user's own work, before the flow and the next request read the habits.
-    noteHabitEvent(event);
-    if (pinsChanged || biggerChanged) persist(get().settings, get().pinned, get().bigger, get().front);
-    // Docking a panel takes its links with it; docking the anchor releases it; work in a panel makes that panel the anchor.
-    if (input.type === "panel_dismiss" && p) dropLinksOf(p);
-    if (input.type === "panel_dismiss" && p && get().anchor?.panel === p) releaseAnchor();
-    if (opts.anchor !== false) noteWork(input, now);
-    // A panel the user made bigger or smaller is the anchor for that change.
-    if ((input.type === "panel_maximize" || input.type === "panel_restore") && p) anchorResized(p, now);
-
-    // New work ends the hold on a layout the user went "Back to"; Jev may adapt again.
-    if (contextHold && CONTEXT_HOLD_END_TYPES.has(input.type)) contextHold = false;
-
-    // Acting (not just looking) ends a hold, so the result of the action can show.
-    if (REAL_ACTION_TYPES.has(input.type) && (keyboardOnCanvas || manualHoldUntil > now)) {
-      keyboardOnCanvas = false;
-      manualHoldUntil = 0;
-      releaseCanvas();
-    }
-
-    const kind = MANUAL_EDITS[input.type];
-    if (p && kind) {
-      // A manual edit of a quiet panel also makes it a normal panel (editPlan drops the quiet marks).
-      manualReplan({ kind, panel: p, ...(smallerSize ? { size: smallerSize } : {}) });
-    } else {
-      if (p && quietPlacement) manualReplan({ kind: "unquiet", panel: p });
-      if (LOCAL_REPLAN_TYPES.has(input.type)) refreshPassive();
-    }
-    if (opts.schedule !== false && triggersRequest(input.type, focusChanged)) scheduler.notify(input.type);
-    // The next step: its record opened, its action done, or the follow-up checked off. The suggestions show that at once.
-    if (noteLinkEvent(event)) refreshPassive();
-    refreshFlow();
-  }
 
   // ----- actions on app data ------------------------------------------------
 
@@ -2538,12 +1561,9 @@ export const useEngine = create<Engine>()((set, get) => {
     const plan = get().plan;
     const kept = plan.suggestions.filter((x) => !matches(x));
     if (kept.length !== plan.suggestions.length) set({ plan: { ...plan, suggestions: kept } });
-    if (commandHold?.suggestion && matches(commandHold.suggestion)) commandHold = { ...commandHold, suggestion: null };
+    k.dropHeldSuggestion(matches);
   }
 
-  function dropHeldSuggestion(s: Suggestion): void {
-    if (commandHold?.suggestion && sameSuggestion(commandHold.suggestion, s)) commandHold = { ...commandHold, suggestion: null };
-  }
 
   function performInternal(actionId: ActionId, args: PerformArgs, via: Via): void {
     if (actionId === "none" || !ACTIONS[actionId]) return;
@@ -2685,17 +1705,17 @@ export const useEngine = create<Engine>()((set, get) => {
       }
       case "view_client": {
         if (client) set({ view: { ...get().view, clients: { ...get().view.clients, selected: client } } });
-        openPanel("clients", via);
+        k.openPanel("clients", via);
         break;
       }
       case "write_note": {
-        openPanel("notes", via);
+        k.openPanel("notes", via);
         break;
       }
     }
 
     if (!done) return;
-    trackInternal({
+    k.track({
       type: "action",
       panel: ACTIONS[actionId].panel ?? undefined,
       detail: {
@@ -2709,20 +1729,6 @@ export const useEngine = create<Engine>()((set, get) => {
     pruneDone(actionId, client, itemId);
   }
 
-  function openPanel(id: PanelId, via: Via = "pointer"): void {
-    const s = get();
-    if (s.plan.placements.some((p) => p.id === id)) {
-      set({ focusedPanel: id });
-      // Asking for a panel that is already here is not work in it, so it does not anchor.
-      trackInternal({ type: "panel_focus", panel: id, detail: { via } }, { anchor: false });
-      return;
-    }
-    set({ focusedPanel: id });
-    // Opening from the dock anchors the opened card (noteWork), so the next
-    // round keeps it and everything before it in place instead of sending it
-    // to the front. An open from a suggestion or a command does not anchor.
-    trackInternal({ type: "panel_open", panel: id, detail: { via } });
-  }
 
   // ----- replay ----------------------------------------------------------------
 
@@ -2754,224 +1760,127 @@ export const useEngine = create<Engine>()((set, get) => {
     const { delayMs: _delay, ...input } = step;
     void _delay;
     if (input.type === "command" && input.detail?.query) {
-      void runCommandInternal(input.detail.query, input.detail.via ?? "keyboard");
+      void get().runCommand(input.detail.query, input.detail.via ?? "keyboard");
       return;
     }
-    trackInternal(input);
+    k.track(input);
   }
 
-  async function runCommandInternal(text: string, via: Via = "keyboard"): Promise<void> {
-    // The server reads at most COMMAND_MAX_LENGTH characters; clip here too so a paste never fails.
-    const q = text.trim().slice(0, COMMAND_MAX_LENGTH).trim();
-    if (!q) return;
-    set({ command: null });
-    // The command request carries this event in its snapshot; no separate debounced request.
-    trackInternal({ type: "command", detail: { query: q, via } }, { schedule: false });
-    await scheduler.command(q);
-  }
 
-  // ----- health ------------------------------------------------------------------
+  // ----- the hooks: where the demo's parts join the library loop --------------
 
-  /**
-   * Ask /api/health at load and, while the server is down, again with
-   * backoff, so a server that starts after the page clears the error.
-   * Only sets the status before the first real answer, or to recover.
-   */
-  function startHealthWatch(): void {
-    watchHealth({
-      onResult: (r) => {
-        if (r.ok) {
-          const recovering = healthFailed;
-          healthFailed = false;
-          if (get().last === null || recovering) {
-            if (r.info.jev === false) baseStatus = "offline";
-            else if (recovering && baseStatus === "error") baseStatus = "idle";
-          }
-          set({ status: statusNow(), ...(recovering ? { lastError: null } : {}) });
-        } else {
-          healthFailed = true;
-          baseStatus = "error";
-          set({ status: statusNow(), lastError: messageOf(r.error) });
-        }
-      },
-    });
-  }
+  const hooks: AdaptiveHooks<DemoSpec> = {
+    describe: describeEvent,
+    triggers: triggersRequest,
+    itemKindOf: kindOfId,
+    clientIn: clientNamedIn,
+    anchorLabel: (ref, s) => anchorLabel(ref, s.data),
+    sameSuggestion,
+    suggestionKey: suggestionIdentity,
+    // A follow-up checks off a to-do item, so it is logged against Tasks.
+    suggestionPanel: (s) => (s.task ? "tasks" : (ACTIONS[s.actionId]?.panel ?? undefined)),
+    suggestionDetail: (s) => (s.args.client ? { client: s.args.client } : {}),
+    request: buildRequest,
+    isAbort: isAbortError,
 
-  if (typeof window !== "undefined" && typeof fetch === "function") {
-    setTimeout(startHealthWatch, 0);
-    // Focus aid 4: start looking for a meeting to prepare for (then every PREP_RECHECK_MS).
-    setTimeout(refreshPrep, 0);
-  }
-
-  // ----- state and actions ---------------------------------------------------------
-
-  const initialPlan = traditionalPlan({
-    pinned: persisted.pinned,
-    bigger: persisted.bigger,
-    front: moveToFrontOn(persisted.settings) ? frontGroup(persisted.front, persisted.pinned, persisted.bigger) : undefined,
-  });
-
-  return {
-    events: [],
-    data: freshData(),
-    view: defaultView(),
-    plan: initialPlan,
-    previousPlan: null,
-    last: null,
-    history: [],
-    status: "idle",
-    lastError: null,
-    settings: persisted.settings,
-    pinned: persisted.pinned,
-    bigger: persisted.bigger,
-    front: persisted.front,
-    toFront: null,
-    dismissed: {},
-    focusedPanel: null,
-    command: null,
-    goal: null,
-    mode: initialPlan.mode,
-    inspectorOpen: false,
-    notice: null,
-    // Anchored relayout (docs/anchored-relayout.md). Inert until the engine
-    // side lands: nothing sets the anchor yet, and nothing packs a grid.
-    anchor: null,
-    pointer: { panel: null, down: false },
-    // The canvas reports the real count on mount (setColumns).
-    columns: 4,
-    links: null,
-    // Predictive flow (docs/predictive-flow.md).
-    upNext: null,
-    upNextDone: null,
-    queueMode: false,
-    contexts: [],
-    working: null,
-    // Focus aid 2 (docs/focus-aids.md).
-    taskDone: null,
-    // Focus aid 3: the habits saved in this browser (none when storage is blocked or the save is unreadable).
-    habits: loadHabits(storage()),
-    // Focus aid 4: the prep chip or card, once a meeting comes up.
-    prep: null,
-    metrics: emptyMetrics(),
-
-    track(input) {
-      trackInternal(input);
-    },
-
-    runCommand(text) {
-      return runCommandInternal(text, "keyboard");
-    },
-
-    chooseCommandOption(panel) {
-      const cmd = lastCommand;
-      if (!cmd) {
-        set({ command: null });
-        openPanel(panel, "command");
-        return;
-      }
-      const s = get();
-      const resolution = resolveCommand(cmd.judgments, cmd.text, {
-        forcePanel: panel,
-        invoices: s.data.invoices,
-        messages: s.data.messages,
-        projects: s.data.projects,
-        view: s.view,
-      });
-      // Picking what the command meant is the command applying: another area saves the current working context first.
-      if (resolution.promote) noteCommandSwitch(resolution.promote);
+    resolveCommand: (cj, text, opts, s) => resolveCommand(cj, text, { ...opts, invoices: s.data.invoices, messages: s.data.messages, projects: s.data.projects, view: s.view }),
+    commandResolved: (resolution, { chosen }) => {
+      // A command to another area saves the current working context first, before its filters land.
+      if (resolution.promote && (chosen || resolution.outcome.status === "applied")) noteCommandSwitch(resolution.promote);
       applyViewPatches(resolution.viewPatches);
-      set({ command: resolution.outcome, dismissed: without(s.dismissed, panel) });
-      // Logged before the layout so usage and recency count it. No new request:
-      // the command round already judged this command.
-      trackInternal({ type: "panel_focus", panel, detail: { via: "command" } }, { schedule: false });
-      const now = get();
-      if (now.settings.adaptive && !now.settings.frozen && now.last) {
-        setCommandAnchor(resolution, panel);
-        const anchor = get().anchor;
-        const held = linkHold();
-        const front = frontNow();
-        let next = applyPromotion({
-          plan: now.plan,
-          previous: now.plan,
-          panel,
-          pinned: now.pinned,
-          bigger: now.bigger,
-          ...(resolution.decision ? { decision: resolution.decision } : {}),
-          anchor,
-          ...(anchor ? { linked: findLinked(anchor, get().data, { view: get().view, now: Date.now() }) } : {}),
-          ...(held ? { linkHold: held } : {}),
-          ...(front ? { front } : {}),
-        });
-        if (resolution.suggestion) next = addSuggestion(next, resolution.suggestion);
-        if (planSignature(place(next).plan) === planSignature(now.plan)) next = { ...next, decisions: [{ kind: "hold", text: `Already showing ${panelTitle(panel)}` }] };
-        commit(next, { force: true });
-        commandHold = { panel, version: lastAppliedVersion, at: Date.now(), suggestion: resolution.suggestion };
-      } else {
-        applyCommandLayout(resolution, null);
+    },
+    commandUnclear: (text) => ({ text, status: "unclear", options: [], message: "Could not understand that. Try other words." }),
+    commandFailed: (text, err) => ({ text, status: "unclear", options: [], message: commandFailureMessage(err) }),
+    // An applied command anchors its hero on the client and invoice it names.
+    commandAnchor: (resolution) => {
+      const { client, invoiceId } = resolution.subject;
+      return { ...(invoiceId ? { itemKind: "invoice" as const, itemId: invoiceId } : {}), ...(client ? { client } : {}) };
+    },
+
+    initialPlan: (s) => traditionalPlan({ pinned: s.pinned, bigger: s.bigger, front: frontOf(s) }),
+    front: frontOf,
+    linkHold: () => linkHold(),
+    // Only records the panels show now: a filter or date range that hides them would leave a tag with nothing to tint.
+    // A prep view's anchor (focus aid 4) links the records it chose, not every record of the client.
+    linked: (anchor, s, now) => prepLinked(anchor) ?? findLinked(anchor, s.data, { view: s.view, now }),
+    policyInput: (_s, now) => {
+      const quiet = quietNow(now);
+      const habit = habitHintsNow(now);
+      return { ...(quiet.length > 0 ? { quiet } : {}), ...(habit ? { habit } : {}) };
+    },
+    extra: () => liveData(),
+    gather: gatherOrder,
+    // The next step's action once its record is open, or the check-off follow-up, leads the suggestions (a command's still goes first).
+    // Focus aid 4: "Start meeting notes" after Prepare, until pressed or dismissed.
+    afterPolicy: (plan) => withPrepSuggestion(withLinkSuggestion(plan)),
+    // A layout the user went "Back to" stays until they do new work.
+    layoutHold: () => (contextHold ? CONTEXT_HOLD_TEXT : null),
+    // With the plan, so the canvas never renders the move without knowing it is one (it follows it instead of holding the anchor still).
+    planPatch: (plan, opts) => (opts.toFront ? { toFront: { panel: opts.toFront, round: plan.round ?? 0, at: ++frontSeq } } : {}),
+    // A new round is one layout change for the Metrics tab, and a panel can go quiet without a layout change (it only fades): count it too.
+    committed: (previous, next, { applied, moved }) => ({
+      metrics: metricsOnQuietWent(applied && moved ? metricsOnLayoutChange(get().metrics) : get().metrics, newlyQuiet(previous, next)),
+    }),
+    planChanged: syncLinks,
+
+    trackStart: ({ input, event, panel: p, state: s }) => {
+      // Focus aid 1: using a quiet panel brings it back (a manual edit), and when
+      // it showed faded that counts as a reopen, a sign the fade was wrong.
+      const touched = p !== undefined && isQuietTouch(input);
+      const quietPlacement = touched ? s.plan.placements.find((x) => x.id === p && x.quiet) : undefined;
+      const reopened = quietPlacement !== undefined && showsQuiet(quietPlacement, input.type === "panel_focus" ? p : undefined);
+      if (touched) quietTrack = touchQuiet(quietTrack, p);
+
+      const counted = metricsOnEvent(s.metrics, event, s.upNext?.candidate.id ?? null);
+      // Focus aid 4: a record the prep view linked, opened for the first time this session.
+      const prepOpen = input.type === "item_open" || input.type === "up_next_open" ? prepRecordOpened(input) : null;
+      const firstPrepOpen = prepOpen !== null && !prepOpened.has(prepOpen);
+      if (prepOpen !== null) prepOpened.add(prepOpen);
+      const withReopen = reopened ? metricsOnQuietReopened(counted) : counted;
+      const patch: Partial<Engine> = { metrics: firstPrepOpen ? metricsOnPrepOpened(withReopen) : withReopen };
+      // The newest pin or "Make bigger" leads the front group (kept whatever the setting, so switching it on uses the real order).
+      if (p && ((input.type === "panel_pin" && !s.pinned.includes(p)) || (input.type === "panel_maximize" && !s.bigger.includes(p)))) {
+        patch.front = [p, ...s.front.filter((x) => x !== p)];
       }
+      return { patch, unquiet: quietPlacement !== undefined };
     },
-
-    clearCommand() {
-      set({ command: null });
+    logged: (event, p) => {
+      // Focus aid 3: learn from the user's own work, before the flow and the next request read the habits.
+      noteHabitEvent(event);
+      // Docking a panel takes its links with it.
+      if (event.type === "panel_dismiss" && p) dropLinksOf(p);
     },
-
-    pin(id) {
-      trackInternal({ type: "panel_pin", panel: id });
+    worked: (event) => {
+      // New work ends the hold on a layout the user went "Back to"; Jev may adapt again.
+      if (contextHold && CONTEXT_HOLD_END_TYPES.has(event.type)) contextHold = false;
     },
-
-    unpin(id) {
-      trackInternal({ type: "panel_unpin", panel: id });
+    tracked: (event) => {
+      // The next step: its record opened, its action done, or the follow-up checked off. The suggestions show that at once.
+      if (noteLinkEvent(event)) k.refreshPassive();
+      refreshFlow();
     },
+    densityIgnores: DENSITY_IGNORES,
 
-    maximize(id, via) {
-      const s = get();
-      if (s.bigger.includes(id) || !s.plan.placements.some((p) => p.id === id)) return;
-      trackInternal({ type: "panel_maximize", panel: id, ...(via ? { detail: { via } } : {}) });
+    roundStart: (res, { promoted }) => {
+      // Did the work really change? Before this round's layout lands, so a saved context is the one before the switch.
+      // A command round's goal still reads the activity before the command, so the command alone decides that round.
+      if (!promoted) noteGoalRound(res);
+      // Focus aid 2: one more goal-done round for the working context, now that this round's goal switch (if any) has landed.
+      noteDoneRound(res);
+      // The next step Jev read from the click, before this round's layout gathers its linked panels.
+      noteLinkAnswer(res);
+      // One more round for the quiet rule (focus aid 1). Counted even with the aid off, so turning it on uses what Jev said.
+      quietTrack = countQuietRound(quietTrack, res.judgments.relevance, res.version);
     },
-
-    restore(id, via) {
-      if (!get().bigger.includes(id)) return;
-      trackInternal({ type: "panel_restore", panel: id, ...(via ? { detail: { via } } : {}) });
+    roundJudged: (res, now) => {
+      // What this round predicts the user opens and does next, for the Metrics tab.
+      judgedAt = now;
+      const code = flowState(now).listNext[0] ?? null;
+      set({ metrics: recordRoundPrediction(get().metrics, { nextRecord: res.judgments.nextRecord, codePick: code, nextAction: res.judgments.nextAction }) });
     },
+    roundDone: () => refreshFlow(),
 
-    dismiss(id) {
-      const s = get();
-      const now = Date.now();
-      let openedAt: number | undefined;
-      for (let i = s.events.length - 1; i >= 0; i--) {
-        const e = s.events[i];
-        if (e.panel !== id) continue;
-        if (e.type === "panel_dismiss") break;
-        if (e.type === "panel_open") {
-          openedAt = e.t;
-          break;
-        }
-      }
-      const durationMs = openedAt !== undefined && now - openedAt <= DISMISS_DURATION_WINDOW_MS ? now - openedAt : undefined;
-      trackInternal({ type: "panel_dismiss", panel: id, ...(durationMs !== undefined ? { detail: { durationMs } } : {}) });
-    },
-
-    open(id) {
-      openPanel(id, "pointer");
-    },
-
-    setFocused(id) {
-      set({ focusedPanel: id });
-    },
-
-    acceptSuggestion(s) {
-      // Act only on a suggestion that is still offered. A stale chip (or a "."
-      // pressed right after doing the same thing by hand) must not repeat it.
-      const current = get().plan.suggestions.find((x) => sameSuggestion(x, s));
-      if (!current) return;
-      trackInternal({
-        type: "suggestion_accept",
-        panel: current.task ? "tasks" : (ACTIONS[current.actionId]?.panel ?? undefined),
-        detail: { actionId: current.actionId, label: current.label, via: "suggestion", ...(current.args.client ? { client: current.args.client } : {}) },
-      });
-      const plan = get().plan;
-      set({ plan: { ...plan, suggestions: plan.suggestions.filter((x) => !sameSuggestion(x, current)) } });
-      dropHeldSuggestion(current);
+    suggestionAccepted: (current) => {
       if (current.meetingNotes) {
         // Focus aid 4: only now that the user pressed it, the heading goes into the notes, and Notes opens with room to write.
         const heading = current.meetingNotes.heading;
@@ -2981,7 +1890,7 @@ export const useEngine = create<Engine>()((set, get) => {
         if (p?.eventId === current.meetingNotes.eventId) set({ prep: { ...p, notesStarted: true } });
         showNotes();
         setNotice(`Meeting notes started${title ? ` for ${title}` : ""}`);
-        trackInternal({ type: "action", panel: "notes", detail: { actionId: "write_note", label: PREP_NOTES_LABEL, ...(current.args.client ? { client: current.args.client } : {}), via: "suggestion" } });
+        k.track({ type: "action", panel: "notes", detail: { actionId: "write_note", label: PREP_NOTES_LABEL, ...(current.args.client ? { client: current.args.client } : {}), via: "suggestion" } });
         return;
       }
       if (current.task) {
@@ -2991,7 +1900,7 @@ export const useEngine = create<Engine>()((set, get) => {
         const data = get().data;
         set({ data: { ...data, tasks: data.tasks.map((t) => (t.id === task.id ? { ...t, done: true } : t)) } });
         setNotice(`Checked off: ${task.title}`);
-        trackInternal({
+        k.track({
           type: "action",
           panel: "tasks",
           detail: { label: `Checked off task: ${task.title}`, itemKind: "task", itemId: task.id, ...(task.client ? { client: task.client } : {}), via: "suggestion" },
@@ -3000,11 +1909,7 @@ export const useEngine = create<Engine>()((set, get) => {
       }
       performInternal(current.actionId, current.args, "suggestion");
     },
-
-    dismissSuggestion(s) {
-      const plan = get().plan;
-      set({ plan: { ...plan, suggestions: plan.suggestions.filter((x) => !sameSuggestion(x, s)) } });
-      dropHeldSuggestion(s);
+    suggestionDismissed: (s) => {
       // Turning down the next step, or its follow-up, ends it: Up next and the "Next" tag stop offering it.
       if (s.nextStep && linkStep) {
         linkStep = null;
@@ -3013,46 +1918,18 @@ export const useEngine = create<Engine>()((set, get) => {
       if (s.task && followUp?.taskId === s.task.id) followUp = null;
       // Focus aid 4: "Start meeting notes" turned down is not offered again for that meeting.
       if (s.meetingNotes) prepNotesDismissed = s.meetingNotes.eventId;
-      trackInternal({
-        type: "suggestion_dismiss",
-        panel: ACTIONS[s.actionId]?.panel ?? undefined,
-        detail: { actionId: s.actionId, label: s.label, ...(s.args.client ? { client: s.args.client } : {}) },
-      });
     },
 
-    perform(actionId, args) {
-      performInternal(actionId, args, "pointer");
-    },
-
-    setView(panel, patch) {
-      const view = get().view;
-      set({ view: { ...view, [panel]: { ...view[panel], ...patch } } });
-      // The current list decides what comes next in it.
-      refreshFlow();
-    },
-
-    setNotes(text) {
-      set({ data: { ...get().data, notes: text } });
-    },
-
-    toggleTask(id) {
-      const data = get().data;
-      set({ data: { ...data, tasks: data.tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)) } });
-    },
-
-    setSettings(patch) {
-      const prev = get().settings;
-      const settings: EngineSettings = {
-        ...prev,
-        ...patch,
-        weights: { ...prev.weights, ...(patch.weights ?? {}) },
-        focusAids: readFocusAids({ ...prev.focusAids, ...(patch.focusAids ?? {}) }),
-      };
-      set({ settings });
-      persist(settings, get().pinned, get().bigger, get().front);
+    mergeSettings: (prev, patch) => ({
+      ...prev,
+      ...patch,
+      weights: { ...prev.weights, ...(patch.weights ?? {}) },
+      focusAids: readFocusAids({ ...prev.focusAids, ...(patch.focusAids ?? {}) }),
+    }),
+    settingsSet: (prev, settings) => {
       // Focus aid 4 off (or Adaptive off): no chip or card, and the prep view's links become ordinary links; nothing moves.
-      const prepOff = meetingPrepOn(prev) && !meetingPrepOn(settings);
-      if (prepOff) {
+      prepWentOff = meetingPrepOn(prev) && !meetingPrepOn(settings);
+      if (prepWentOff) {
         prepGather = null;
         const l = get().links;
         if (l?.prep) {
@@ -3062,74 +1939,42 @@ export const useEngine = create<Engine>()((set, get) => {
         }
       }
       // "Arrange linked panels by next step" off (or Adaptive off): no step, no follow-up, and no "Next" tag; nothing moves.
-      const linkFlowOff = arrangeLinksOn(prev) && !arrangeLinksOn(settings);
-      if (linkFlowOff) {
+      linkFlowWentOff = arrangeLinksOn(prev) && !arrangeLinksOn(settings);
+      if (linkFlowWentOff) {
         clearLinkFlow();
         syncLinks();
       }
-      // The anchor belongs to the adaptive layout: switching it off, or freezing, releases it.
-      if (prev.adaptive !== settings.adaptive || (!prev.frozen && settings.frozen)) {
-        releaseAnchor();
-        pointerHold = null;
-        clearPointerTimer();
-      }
+    },
+    settingsReleased: (prev, settings) => {
       // The links belong to the adaptive layout too: the other layout would not keep their panels.
       if (prev.adaptive !== settings.adaptive) set({ links: null });
-      // So do the hold on a layout the user went "Back to" and a half-judged goal switch.
+      // So do the hold on a layout the user went "Back to", a half-judged goal switch, and the undo of a "Back to".
       if (prev.adaptive !== settings.adaptive) {
         contextHold = false;
         goalSwitch = null;
-      }
-      else if (prev.linkLines !== settings.linkLines) syncLinks();
-      if (prev.adaptive !== settings.adaptive) {
-        commandHold = null;
-        undone = null;
         restoreUndo = null;
-        if (!settings.adaptive) setPlanDirect(traditionalPlan({ pinned: get().pinned, dismissed: get().dismissed, opened: manuallyOpened, bigger: get().bigger }));
-        else if (!replanLocal({ force: true }) && !get().last) setPlanDirect(basePlan());
-      } else if (prev.frozen && !settings.frozen) {
-        replanLocal({ force: true });
-      } else if (prev.focusAids.fadeQuiet !== settings.focusAids.fadeQuiet) {
+      } else if (prev.linkLines !== settings.linkLines) syncLinks();
+    },
+    settingsOther: (prev, settings) => {
+      if (prev.focusAids.fadeQuiet !== settings.focusAids.fadeQuiet) {
         applyFadeQuiet(settings.focusAids.fadeQuiet);
       } else if (prev.focusAids.habits !== settings.focusAids.habits) {
         // "Learn my habits": the habit parts, reasons, and suggestion come or go at the normal pace (off: exactly the plan without habits).
-        replanLocal();
-      } else if (linkFlowOff) {
+        k.replanLocal();
+      } else if (linkFlowWentOff) {
         // Only the suggestions change: the step's action and the follow-up go.
-        refreshPassive();
+        k.refreshPassive();
       }
-      // Undo must not bring back a layout from before the switch (an adaptive
-      // plan while Adaptive is off, or the reverse).
-      if (prev.adaptive !== settings.adaptive || prev.frozen !== settings.frozen) set({ previousPlan: null });
+    },
+    settingsDone: (prev, settings) => {
       // The Up next card shows only with Adaptive on and its focus aid on.
       refreshFlow();
       // Focus aid 4: the chip comes or goes at once, and a new lead time applies at once.
-      if (prepOff || meetingPrepOn(prev) !== meetingPrepOn(settings) || prev.prepLeadMin !== settings.prepLeadMin) refreshPrep();
+      if (prepWentOff || meetingPrepOn(prev) !== meetingPrepOn(settings) || prev.prepLeadMin !== settings.prepLeadMin) refreshPrep();
     },
+    persist: (s) => persist(s.settings, s.pinned, s.bigger, s.front),
 
-    setFocusAid(id, on, via) {
-      const prev = get().settings.focusAids;
-      if (!(id in prev) || prev[id] === on) return;
-      get().setSettings({ focusAids: { ...prev, [id]: on } });
-      // Logged for the inspector: not a trigger, no recent use, and left out of the snapshot (SIGNAL_PROFILE.cueOnly in snapshot.ts).
-      trackInternal(
-        { type: "setting_change", detail: { setting: id, enabled: on, label: FOCUS_AID_TEXT[id].label, ...(via ? { via } : {}) } },
-        { schedule: false, anchor: false },
-      );
-    },
-
-    setWeights(patch) {
-      const prev = get().settings;
-      const settings: EngineSettings = { ...prev, weights: { ...prev.weights, ...patch } };
-      set({ settings });
-      persist(settings, get().pinned, get().bigger, get().front);
-      replanLocal({ force: true });
-    },
-
-    undo(to) {
-      const s = get();
-      // previousPlan is cleared when Adaptive or Freeze changes; then there is nothing to undo.
-      if (!s.previousPlan) return;
+    undoBack: (s) => {
       // Undo right after "Back to" (its plan is still on screen) puts back
       // everything the restore replaced, not only the layout: the same data
       // a WorkingContext holds, plus the working goal and the saved contexts.
@@ -3138,89 +1983,32 @@ export const useEngine = create<Engine>()((set, get) => {
       // another Back to, save the restored work as a new context, or hold the layout.
       const back = restoreUndo && restoreUndo.round === (s.plan.round ?? 0) && restoreUndo.plan === s.previousPlan ? restoreUndo : null;
       restoreUndo = null;
-      const target = back?.plan ?? to ?? s.previousPlan;
+      undoFrom = back;
+      return back;
+    },
+    undoing: (s, target) => {
       // Undoing the round that made the links (built for their click, or
       // undoing back past it) takes them away too; older links stay.
       const links = s.links;
       const undoesLinks = links !== null && (s.plan.anchor?.at === links.source.at || links.round > (target.round ?? 0));
-      // The user undid the relayout around the anchor, so it lets go.
-      releaseAnchor();
       // Panels the undone change made quiet are not quiet in what comes back: the user said no, so they start over (focus aid 1).
       const quietAfter = new Set(target.placements.filter((p) => p.quiet).map((p) => p.id));
       for (const p of s.plan.placements) if (p.quiet && !quietAfter.has(p.id)) quietTrack = touchQuiet(quietTrack, p.id);
-      // Mark what the undo changes, so card badges describe the undo and not the undone change.
-      const marked = withoutLinks(markChanges(s.plan, target));
-      const restored = place({ ...marked, decisions: [{ kind: "hold", text: "Restored the previous layout" }] }, { keepGrid: true, decisions: false }).plan;
-      adopt(restored);
-      let dismissed = back?.dismissed ?? s.dismissed;
-      for (const p of restored.placements) dismissed = without(dismissed, p.id);
-      // Pins follow the restored plan, so the pin button and the store agree, and so do the panels the user made bigger.
-      const pinned = restored.placements.filter((p) => p.pinned).map((p) => p.id);
-      const pinsChanged = pinned.join(",") !== s.pinned.join(",");
-      const bigger = restored.placements.filter((p) => p.bigger).map((p) => p.id);
-      const biggerChanged = !sameSet(bigger, s.bigger);
-      if (biggerChanged) for (const id of s.bigger) if (!bigger.includes(id)) delete sizeBeforeBigger[id];
-      const now = Date.now();
-      if (s.last && s.settings.adaptive) {
-        const onTarget = new Set(target.placements.map((p) => p.id));
-        const onUndone = new Set(s.plan.placements.map((p) => p.id));
-        undone = {
-          avoid: {
-            ...(s.plan.mode !== target.mode ? { mode: s.plan.mode } : {}),
-            add: s.plan.placements.filter((p) => !onTarget.has(p.id) && !p.pinned).map((p) => p.id),
-            dock: target.placements.filter((p) => !onUndone.has(p.id)).map((p) => p.id),
-          },
-          judgments: s.last.judgments,
-          at: now,
-        };
-      }
-      // The user undid it; a command's promotion must not come back either, and neither does a "Back to" hold.
-      commandHold = null;
+      // The user undid it; a "Back to" hold does not come back either.
       contextHold = false;
-      clearHeld();
-      lastPlanChangeAt = now;
-      undoHoldUntil = now + UNDO_HOLD_MS;
-      set({
-        plan: restored,
-        previousPlan: s.plan,
-        mode: restored.mode,
-        dismissed,
-        ...(pinsChanged ? { pinned } : {}),
-        ...(biggerChanged ? { bigger } : {}),
-        ...(undoesLinks ? { links: null } : {}),
-        ...(back ? { view: back.view, working: back.working, contexts: back.contexts } : {}),
-      });
-      syncLinks();
+      const back = undoFrom;
+      return { ...(undoesLinks ? { links: null } : {}), ...(back ? { view: back.view, working: back.working, contexts: back.contexts } : {}) };
+    },
+    undone: () => {
       // The link cues that were on screen before "Back to" come back with its undo.
+      const back = undoFrom;
+      undoFrom = null;
       if (back) set({ links: withNext(onCanvasOnly(back.links, get().plan)) });
-      if (pinsChanged || biggerChanged) persist(get().settings, get().pinned, get().bigger, get().front);
-      trackInternal({ type: "undo" });
     },
 
-    reset() {
-      cancelReplay();
-      scheduler.cancel();
-      clearHeld();
-      if (canvasTimer !== null) clearTimeout(canvasTimer);
-      canvasTimer = null;
-      lastAppliedVersion = version; // Anything still in flight is now stale.
-      recentModes = [];
-      recentDensities = [];
-      lastPlanChangeAt = Number.NEGATIVE_INFINITY;
-      undoHoldUntil = 0;
-      manualHoldUntil = 0;
-      canvasDeferred = false;
-      catchupTraditional = false;
-      manuallyOpened = [];
-      lastCommand = null;
-      commandHold = null;
-      undone = null;
-      clearAnchorTimer();
-      clearPointerTimer();
-      pointerHold = null;
-      lastPress = null;
+    resetStart: () => cancelReplay(),
+    resetting: () => {
       linkDrops = null;
-      sizeBeforeBigger = {};
       // Predictive flow: session memory only.
       upNextDismissed = {};
       if (upNextTimer !== null) clearTimeout(upNextTimer);
@@ -3252,29 +2040,11 @@ export const useEngine = create<Engine>()((set, get) => {
       prepGather = null;
       prepOpened.clear();
       prepNotesDismissed = null;
-      if (baseStatus === "error") baseStatus = "idle";
-      // Reset keeps the pins but clears the panels the user made bigger.
-      if (get().bigger.length > 0) persist(get().settings, get().pinned, [], get().front);
-      const plan = traditionalPlan({ pinned: get().pinned, front: moveToFrontOn(get().settings) ? frontGroup(get().front, get().pinned, []) : undefined });
-      set({
-        events: [],
+      return {
         data: freshData(),
         view: defaultView(),
-        plan,
-        previousPlan: null,
-        last: null,
-        history: [],
-        status: statusNow(),
-        lastError: null,
-        dismissed: {},
-        focusedPanel: null,
-        command: null,
-        goal: null,
-        mode: plan.mode,
         notice: null,
-        anchor: null,
         links: null,
-        bigger: [],
         toFront: null,
         upNext: null,
         upNextDone: null,
@@ -3284,9 +2054,44 @@ export const useEngine = create<Engine>()((set, get) => {
         taskDone: null,
         prep: null,
         metrics: emptyMetrics(),
-      });
-      // A real meeting may be coming up.
-      refreshPrep();
+      };
+    },
+    // A real meeting may be coming up.
+    resetDone: () => refreshPrep(),
+  };
+
+  // ----- the demo's own actions ----------------------------------------------------
+
+  const actions: DemoSpec["actions"] = {
+    perform(actionId, args) {
+      performInternal(actionId, args, "pointer");
+    },
+
+    setView(panel, patch) {
+      const view = get().view;
+      set({ view: { ...view, [panel]: { ...view[panel], ...patch } } });
+      // The current list decides what comes next in it.
+      refreshFlow();
+    },
+
+    setNotes(text) {
+      set({ data: { ...get().data, notes: text } });
+    },
+
+    toggleTask(id) {
+      const data = get().data;
+      set({ data: { ...data, tasks: data.tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)) } });
+    },
+
+    setFocusAid(id, on, via) {
+      const prev = get().settings.focusAids;
+      if (!(id in prev) || prev[id] === on) return;
+      get().setSettings({ focusAids: { ...prev, [id]: on } });
+      // Logged for the inspector: not a trigger, no recent use, and left out of the snapshot (SIGNAL_PROFILE.cueOnly in snapshot.ts).
+      k.track(
+        { type: "setting_change", detail: { setting: id, enabled: on, label: FOCUS_AID_TEXT[id].label, ...(via ? { via } : {}) } },
+        { schedule: false, anchor: false },
+      );
     },
 
     async replayScenario(id) {
@@ -3310,11 +2115,6 @@ export const useEngine = create<Engine>()((set, get) => {
       }
     },
 
-    adaptNow(trigger = "manual") {
-      version += 1; // So the answer counts as newer than the last applied one.
-      return scheduler.flush(trigger);
-    },
-
     setInspectorOpen(open) {
       set({ inspectorOpen: open });
     },
@@ -3323,57 +2123,13 @@ export const useEngine = create<Engine>()((set, get) => {
       set({ notice: null });
     },
 
-    setCanvasHold(source, active) {
-      if (source === "pointer") pointerOnCanvas = active;
-      else keyboardOnCanvas = active;
-      if (!active) {
-        if (source === "pointer") manualHoldUntil = 0;
-        releaseCanvas();
-      }
-    },
-
-    setPointer(p) {
-      const cur = get().pointer;
-      if (cur.panel === p.panel && cur.down === p.down) return;
-      if (p.down && p.panel && !(cur.down && cur.panel === p.panel)) lastPress = { panel: p.panel, at: Date.now() };
-      set({ pointer: { panel: p.panel, down: p.down } });
-      // The pointer left the card a round held still: apply what waited, at the normal pace.
-      if (pointerHold && pointerHold.panel !== p.panel) {
-        pointerHold = null;
-        clearPointerTimer();
-        if (replanLocal()) noteDecisions(get().plan);
-      }
-    },
-
-    setColumns(columns) {
-      const s = get();
-      const repack = packedLayout(s.plan) && s.plan.grid?.columns !== columns;
-      if (s.columns === columns && !repack) return;
-      set({ columns });
-      if (!repack) return;
-      // A resize re-packs by reflow and plays no stages: an empty summary and no badges.
-      const plan = s.plan;
-      const before = plan.grid ? (plan.grid.columns === columns ? plan.grid.cells : null) : reflowCells(plan, columns).cells;
-      const r = reflowCells(plan, columns);
-      const moved = !before || plan.placements.some((p) => !cellsEqual(before[p.id], r.cells[p.id]));
-      const next: LayoutPlan = {
-        ...plan,
-        placements: plan.placements.map((p) => (p.change ? { ...p, change: null } : p)),
-        grid: { columns, cells: r.cells, rows: r.rows, anchored: false },
-        changeSummary: emptySummary(),
-        round: moved ? Math.max(plan.round ?? 0, roundSeq) + 1 : (plan.round ?? 0),
-      };
-      adopt(next);
-      set({ plan: next });
-    },
-
     clearLinks(via) {
       const links = get().links;
       if (!links) return;
       rememberDrop(links.source.at, "all");
       set({ links: null });
       // Logged for the inspector; links_dismiss never asks Jev and stays out of the snapshot.
-      trackInternal({ type: "links_dismiss", detail: { label: linkLabel(links), ...(via ? { via } : {}) } });
+      k.track({ type: "links_dismiss", detail: { label: linkLabel(links), ...(via ? { via } : {}) } });
     },
 
     removeLink(panel) {
@@ -3381,7 +2137,7 @@ export const useEngine = create<Engine>()((set, get) => {
       if (!links?.relations[panel]) return;
       rememberDrop(links.source.at, panel);
       set({ links: withNext(withoutLink(links, panel)) });
-      trackInternal({ type: "links_dismiss", detail: { label: linkLabel(links), linkedPanel: panel } });
+      k.track({ type: "links_dismiss", detail: { label: linkLabel(links), linkedPanel: panel } });
     },
 
     openUpNext(id, via = "pointer") {
@@ -3393,11 +2149,11 @@ export const useEngine = create<Engine>()((set, get) => {
       // A docked panel comes onto the canvas first. Logged as an open from a
       // suggestion (the card offered it), so it is not counted as the user
       // navigating; the record open below anchors the panel.
-      if (!s.plan.placements.some((p) => p.id === c.panel)) openPanel(c.panel, "suggestion");
+      if (!s.plan.placements.some((p) => p.id === c.panel)) k.openPanel(c.panel, "suggestion");
       // Select it the way a click in the panel does, clearing only a filter that would hide it.
       const patch = revealPatch(r.kind, r.id, get().data, get().view, Date.now());
       if (patch) applyViewPatches([patch]);
-      trackInternal({
+      k.track({
         type: "up_next_open",
         panel: c.panel,
         detail: { itemKind: r.kind, itemId: r.id, ...(c.client ? { client: c.client } : {}), label: c.label, via },
@@ -3435,21 +2191,21 @@ export const useEngine = create<Engine>()((set, get) => {
       // Going back to earlier work is a move the user chose (focus aid 3).
       noteGoalMove(s.working?.goal, ctx.goal);
       // The anchor, a command's promotion, and a half-judged goal switch were about the work being left.
-      releaseAnchor();
-      commandHold = null;
+      k.releaseAnchor();
+      k.clearCommandHold();
       goalSwitch = null;
-      switchIgnoreThrough = version;
-      clearHeld();
+      switchIgnoreThrough = k.version();
+      k.clearHeld();
       const plan = restoredPlan(ctx, s.plan, s.pinned);
       const bigger = plan.placements.filter((p) => p.bigger).map((p) => p.id);
-      for (const b of s.bigger) if (!bigger.includes(b)) delete sizeBeforeBigger[b];
+      for (const b of s.bigger) if (!bigger.includes(b)) k.forgetSize(b);
       let dismissed = s.dismissed;
       for (const p of plan.placements) dismissed = without(dismissed, p.id);
       set({ view: structuredClone(ctx.view), bigger, dismissed, contexts, working: { goal: ctx.goal, since: now } });
-      if (!sameSet(bigger, s.bigger)) persist(get().settings, get().pinned, bigger, get().front);
+      if (!sameSet(bigger, s.bigger)) k.persist();
       // A manual edit: at once, not after the minimum change interval. The
       // saved cells come back when the column count is the same; otherwise it reflows in the saved order.
-      setPlanDirect(plan, { keepGrid: true, reflow: true });
+      k.setPlanDirect(plan, { keepGrid: true, reflow: true });
       // The link cues come back too, counted from this round (an Undo right after puts back the ones they replaced).
       const placed = get().plan;
       linkDrops = null;
@@ -3458,7 +2214,7 @@ export const useEngine = create<Engine>()((set, get) => {
       if (get().previousPlan !== s.plan) set({ previousPlan: s.plan });
       restoreUndo = { round: placed.round ?? 0, ...before };
       contextHold = true;
-      trackInternal({ type: "context_restore", detail: { label: ctx.label, ...(via ? { via } : {}) } }, { schedule: false, anchor: false });
+      k.track({ type: "context_restore", detail: { label: ctx.label, ...(via ? { via } : {}) } }, { schedule: false, anchor: false });
     },
 
     startNextTask(via = "pointer") {
@@ -3473,14 +2229,14 @@ export const useEngine = create<Engine>()((set, get) => {
       doneSeen.set(done.goal, { acked: true });
       // The task's goal is the new working context. Answers to requests sent before this read the work left behind.
       goalSwitch = null;
-      switchIgnoreThrough = version;
+      switchIgnoreThrough = k.version();
       set({ working: { goal: task.goal, since: now } });
       // A docked panel comes onto the canvas first, logged as an open from a suggestion (not the user navigating); task_start below anchors it.
-      if (!get().plan.placements.some((p) => p.id === task.panel)) openPanel(task.panel, "suggestion");
+      if (!get().plan.placements.some((p) => p.id === task.panel)) k.openPanel(task.panel, "suggestion");
       // Its filter and its first record, through the view state, the way a click there would. Never an action.
       const patch = taskViewPatch(task, get().data);
       if (patch) applyViewPatches([patch]);
-      trackInternal({
+      k.track({
         type: "task_start",
         panel: task.panel,
         detail: {
@@ -3512,14 +2268,14 @@ export const useEngine = create<Engine>()((set, get) => {
       clearSavedHabits(storage());
       set({ habits: emptyHabits(), metrics: { ...get().metrics, habits: { guessed: 0, right: 0 } } });
       // The habit parts, reasons, and suggestion go at the normal pace; Up next and the Done card at once.
-      replanLocal();
+      k.replanLocal();
       refreshFlow();
     },
 
     loadSampleHabits() {
       const now = Date.now();
       keepHabits(mergeHabits(get().habits, sampleWeek(now), now));
-      replanLocal();
+      k.replanLocal();
       refreshFlow();
     },
 
@@ -3535,22 +2291,22 @@ export const useEngine = create<Engine>()((set, get) => {
       prepPrepared.add(meeting.id);
       // The meeting's client is the new working context. Answers to requests sent before this read the work left behind.
       goalSwitch = null;
-      switchIgnoreThrough = version;
-      commandHold = null;
-      clearHeld();
+      switchIgnoreThrough = k.version();
+      k.clearCommandHold();
+      k.clearHeld();
       set({ working: { goal: "manage_client", since: now, client: meeting.client } });
       // The meeting selected and the client's records in view, through the view state, the way the user would set them. Never an action.
       applyViewPatches(prepViewPatches(meeting, buildPrepRecords(meeting, get().data, now), get().view, now));
       // Calendar holds still while the rest gathers around it, so it needs a cell first: a docked Calendar comes onto the canvas.
-      if (!get().plan.placements.some((p) => p.id === "calendar")) setPlanDirect(editPlan(get().plan, { kind: "open", panel: "calendar" }), { holdAll: true });
-      setAnchor({ panel: "calendar", itemKind: "event", itemId: meeting.id, client: meeting.client, source: "work" }, now);
+      if (!get().plan.placements.some((p) => p.id === "calendar")) k.setPlanDirect(editPlan(get().plan, { kind: "open", panel: "calendar" }), { holdAll: true });
+      k.setAnchor({ panel: "calendar", itemKind: "event", itemId: meeting.id, client: meeting.client, source: "work" }, now);
       const anchor = get().anchor;
       set({ prep: prepStateFor(meeting, "ready") });
       // A manual edit: at once, not after the minimum change interval.
       if (anchor) arrangePrep(meeting, anchor);
       // The prep view holds until the user does new work, like a layout they went back to.
       contextHold = true;
-      trackInternal(
+      k.track(
         { type: "prep_start", panel: "calendar", detail: { itemKind: "event", itemId: meeting.id, client: meeting.client, label: eventLabel(meeting, now), via } },
         { schedule: false, anchor: false },
       );
@@ -3584,4 +2340,60 @@ export const useEngine = create<Engine>()((set, get) => {
       refreshPrep();
     },
   };
-});
+
+  const state: Partial<Engine> & DemoSpec["state"] = {
+    data: freshData(),
+    view: defaultView(),
+    settings: persisted.settings,
+    pinned: persisted.pinned,
+    bigger: persisted.bigger,
+    front: persisted.front,
+    toFront: null,
+    inspectorOpen: false,
+    notice: null,
+    links: null,
+    // Predictive flow (docs/predictive-flow.md).
+    upNext: null,
+    upNextDone: null,
+    queueMode: false,
+    contexts: [],
+    working: null,
+    // Focus aid 2 (docs/focus-aids.md).
+    taskDone: null,
+    // Focus aid 3: the habits saved in this browser (none when storage is blocked or the save is unreadable).
+    habits: loadHabits(storage()),
+    // Focus aid 4: the prep chip or card, once a meeting comes up.
+    prep: null,
+    metrics: emptyMetrics(),
+  };
+
+  // Focus aid 4: start looking for a meeting to prepare for (then every PREP_RECHECK_MS), in a browser.
+  return { state, actions, hooks, ...(inBrowser ? { start: refreshPrep } : {}) };
+}
+
+// ---------------------------------------------------------------------------
+// The store
+// ---------------------------------------------------------------------------
+
+/** In a browser, not Node (tests, the eval): only then the store checks the server's health and looks for meetings. */
+const inBrowser = typeof window !== "undefined" && typeof fetch === "function";
+
+export const useEngine = create<Engine>()((set, get) =>
+  createAdaptiveEngine<DemoSpec>(
+    {
+      catalog: CATALOG,
+      policy: POLICY,
+      send: postAdapt,
+      words: WORDS,
+      profile: SIGNAL_PROFILE,
+      anchorTypes: ANCHOR_TYPES,
+      realActionTypes: REAL_ACTION_TYPES,
+      passiveTypes: LOCAL_REPLAN_TYPES,
+      focusTypes: FOCUS_TYPES,
+      commandMaxLength: COMMAND_MAX_LENGTH,
+      ...(inBrowser ? { watchHealth } : {}),
+      extend: demoExtension,
+    },
+    { get, set },
+  ),
+);

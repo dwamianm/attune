@@ -93,7 +93,8 @@ export function actionPast(actionId: ActionId, detail: SignalDetail = {}): strin
   }
 }
 
-const WORDS: EventWords<PanelId> = {
+/** The demo's words for the core sentences: panel titles, record kinds, and its actions in the past tense. */
+export const WORDS: EventWords<PanelId> = {
   panels: PANELS,
   itemWords: ITEM_WORDS,
   actionPast: (actionId, detail) => actionPast(actionId as ActionId, detail as SignalDetail),
