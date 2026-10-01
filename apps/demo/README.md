@@ -874,8 +874,9 @@ deploy/       AWS deploy (CloudFormation, deploy.sh, destroy.sh)
 docs/         Design notes: anchored relayout, focus aids, predictive flow
 ```
 
-From the library (`packages/`): the grid packer, the request scheduler, and
-the plain-word helpers (`@attune/core`); the generic React hooks
+From the library (`packages/`): the catalog check (`CATALOG` in
+`shared/catalog.ts` goes through `defineCatalog`), the layout modes, the grid
+packer, the request scheduler, and the plain-word helpers (`@attune/core`); the generic React hooks
 (`@attune/react`); the request guard and rate limiter (`@attune/server`).
 
 ## Known limits

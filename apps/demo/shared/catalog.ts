@@ -6,10 +6,20 @@
  * Jev question criteria, and the client uses the same ids to lay out panels,
  * so the two sides can never disagree about what an id means.
  *
+ * CATALOG at the end is the same vocabulary as one value, checked by
+ * defineCatalog from @attune/core when this module loads. It is what the
+ * library reads as library modules move out of this app
+ * (docs/library-roadmap.md at the repo root). The layout modes belong to the
+ * library and are re-exported here.
+ *
  * Descriptions are written for Jev as much as for people: they are sent as
  * question context, so keep them concrete and literal (see the Jev 1.13
  * "literal reading" note in the TypeSafe docs).
  */
+
+import { defineCatalog, type ActionDef as LibActionDef, type Catalog, type GoalDef, type PanelDef as LibPanelDef } from "@attune/core";
+
+export { LAYOUT_MODE_DEFS, LAYOUT_MODES, type LayoutMode } from "@attune/core";
 
 export const PANEL_IDS = [
   "inbox",
@@ -25,16 +35,8 @@ export const PANEL_IDS = [
 ] as const;
 export type PanelId = (typeof PANEL_IDS)[number];
 
-export interface PanelDef {
-  id: PanelId;
-  title: string;
-  /** What the panel shows and what the user can do in it. Sent to Jev. */
-  description: string;
-  /** lucide-react icon name used by the UI. */
-  icon: string;
-  /** Shown on first load, before there is any activity to adapt to. */
-  defaultVisible: boolean;
-}
+/** One panel. `icon` is a lucide-react icon name (src/ui/icons.ts). */
+export type PanelDef = LibPanelDef<PanelId>;
 
 export const PANELS: Record<PanelId, PanelDef> = {
   inbox: {
@@ -132,7 +134,7 @@ export const GOAL_IDS = [
 ] as const;
 export type GoalId = (typeof GOAL_IDS)[number];
 
-export const GOALS: Record<GoalId, { label: string; description: string }> = {
+export const GOALS: Record<GoalId, GoalDef> = {
   triage_inbox: {
     label: "Working through the inbox",
     description: "Reading, sorting, and replying to email messages.",
@@ -189,15 +191,8 @@ export const ACTION_IDS = [
 ] as const;
 export type ActionId = (typeof ACTION_IDS)[number];
 
-export interface ActionDef {
-  id: ActionId;
-  /** Short button label. May contain {client} and {invoice}, which code fills in. */
-  label: string;
-  /** Sent to Jev as the option description. */
-  description: string;
-  /** Panel that performs the action. */
-  panel: PanelId | null;
-}
+/** One next step. Its label may contain {client} and {invoice}, which code fills in. */
+export type ActionDef = LibActionDef<PanelId, ActionId>;
 
 export const ACTIONS: Record<ActionId, ActionDef> = {
   send_payment_reminder: {
@@ -262,27 +257,6 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   },
 };
 
-export const LAYOUT_MODES = ["focus", "compare", "overview"] as const;
-export type LayoutMode = (typeof LAYOUT_MODES)[number];
-
-export const LAYOUT_MODE_DEFS: Record<LayoutMode, { label: string; description: string }> = {
-  focus: {
-    label: "Focus",
-    description:
-      "The user is working deeply on one thing. Show one large panel with a few small helpers.",
-  },
-  compare: {
-    label: "Compare",
-    description:
-      "The user is moving back and forth between two related things. Show two large panels side by side.",
-  },
-  overview: {
-    label: "Overview",
-    description:
-      "The user is scanning or switching between many areas. Show many medium panels at once.",
-  },
-};
-
 /**
  * Hand-written rule: how strongly each goal implies each panel (0 to 1).
  * This is deliberately code, not a model call. The layout policy blends it
@@ -299,6 +273,17 @@ export const GOAL_PANEL_AFFINITY: Record<GoalId, Partial<Record<PanelId, number>
   capture_notes: { notes: 1, tasks: 0.4, calendar: 0.2 },
   unclear: {},
 };
+
+/** The whole vocabulary as one checked value, for the library (see the note at the top). */
+export const CATALOG: Catalog<PanelId, GoalId, ActionId> = defineCatalog({
+  panelIds: PANEL_IDS,
+  panels: PANELS,
+  goalIds: GOAL_IDS,
+  goals: GOALS,
+  actionIds: ACTION_IDS,
+  actions: ACTIONS,
+  goalPanelAffinity: GOAL_PANEL_AFFINITY,
+});
 
 export function panelTitle(id: PanelId): string {
   return PANELS[id].title;

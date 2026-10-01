@@ -11,8 +11,9 @@ that proves it out lives in `apps/demo`.
 
 ```
 packages/
-  core/     @attune/core    Framework-free: the anchored grid packer, the request
-                            scheduler, plain-word helpers. No DOM, no React, no network.
+  core/     @attune/core    Framework-free: the catalog type and its check, the layout
+                            modes, the anchored grid packer, the request scheduler,
+                            plain-word helpers. No DOM, no React, no network.
   react/    @attune/react   React bindings. Today: generic hooks (keyboard, sizes,
                             roving lists, popovers).
   server/   @attune/server  For the server that holds the model key: request guard
@@ -92,6 +93,13 @@ These are the choices made when the prototype became a monorepo, and why.
   the roadmap).
 - **`private: true` on every package.** Publishing is a separate decision
   (npm scope, license, versioning). The `@attune` scope is a working name.
+- **The app's vocabulary is a `Catalog`.** An app lists its panels, goals,
+  actions, and goal-to-panel affinity once and passes the list through
+  `defineCatalog`, which reports every mistake when the app starts. Two ids
+  are fixed by the library, "unclear" (`UNCLEAR_GOAL`) and "none"
+  (`NO_ACTION`), because every model choice needs an explicit no-match
+  option. The three layout modes belong to the library, not the catalog,
+  because the policy treats each one differently.
 - **The demo keeps its vocabulary.** The demo's catalog, fixtures, Jev
   questions, policy, and store still live in `apps/demo`. They name the
   demo's panels directly, so they move only after the catalog becomes
