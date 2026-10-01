@@ -28,6 +28,8 @@ packages/
 apps/
   demo/     @attune/demo    The Attune prototype ("Fernhill Studio"): web app, API
                             server, eval, AWS deploy. See apps/demo/README.md.
+  playground/ @attune/playground  A second app, a small help desk, built only from
+                            the packages. See apps/playground/README.md.
 docs/
   library-roadmap.md        What moves into the library next, and what blocks it.
 ```
@@ -49,6 +51,7 @@ Root scripts:
 | Script | What it does |
 | --- | --- |
 | `pnpm dev` | Run the demo (API server and web app) |
+| `pnpm dev:playground` | Run the playground (API on 8791, web on 5174), next to the demo if you like |
 | `pnpm test` | Every package's and app's unit tests in one vitest run |
 | `pnpm typecheck` | `tsc --noEmit` in every package and app |
 | `pnpm build` | Every package that has a build (today: the demo web app) |

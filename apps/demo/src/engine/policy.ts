@@ -10,7 +10,17 @@
  * count toward density. Pure: no DOM, no store, no clock except `input.now`.
  */
 import * as Lib from "@attune/core";
-import { createPolicy, lowerFirst, matchesQuery, p2, possessive, type PlanEdit as LibPlanEdit } from "@attune/core";
+import {
+  createPolicy,
+  lowerFirst,
+  matchesQuery,
+  p2,
+  possessive,
+  RUNNER_UP_MIN_P,
+  SUGGEST_PRIMARY_AT,
+  SUGGEST_SUBTLE_AT,
+  type PlanEdit as LibPlanEdit,
+} from "@attune/core";
 import { ACTIONS, CATALOG, GOALS, type ActionId, type GoalId, type PanelId } from "../../shared/catalog.ts";
 import { CLIENTS, INVOICES, MESSAGES, PROJECTS, oldestOverdueInvoice, type Invoice, type Message, type Project } from "../../shared/fixtures.ts";
 import type { ChoiceJudgment, ItemKind, Judgments, LayoutPlan, SignalEvent, Suggestion } from "../../shared/types.ts";
@@ -20,15 +30,11 @@ import { relationFor } from "./relations.ts";
 import { panelUsage } from "./usage.ts";
 
 // ---------------------------------------------------------------------------
-// Suggestion thresholds. The layout thresholds are in @attune/core.
+// Suggestion thresholds. The layout thresholds, and the next-step
+// thresholds (SUGGEST_PRIMARY_AT, SUGGEST_SUBTLE_AT, RUNNER_UP_MIN_P), are
+// in @attune/core.
 // ---------------------------------------------------------------------------
 
-/** Next-step confidence for a primary suggestion. */
-export const SUGGEST_PRIMARY_AT = 0.7;
-/** Next-step confidence for a subtle suggestion. */
-export const SUGGEST_SUBTLE_AT = 0.45;
-/** Runner-up next step probability needed to show it as a second, subtle suggestion. */
-export const RUNNER_UP_MIN_P = 0.25;
 /** Target-client confidence needed to fill a suggestion's client. */
 export const CLIENT_ARG_CONFIDENCE = 0.5;
 /**

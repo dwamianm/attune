@@ -12,8 +12,53 @@
  * USAGE_WEIGHTS in apps/demo/src/engine/usage.ts.
  */
 
+import type { CoreSignalType } from "./signals.ts";
+
 /** Half-life of an interaction's weight. */
 export const USAGE_HALF_LIFE_MS = 90_000;
+
+/**
+ * Weight of making a panel bigger or smaller by hand: a strong focus, more
+ * than a click into the panel (1) and as much as opening it from the dock,
+ * because the user chose that panel and how much room it gets.
+ */
+export const RESIZE_USAGE_WEIGHT = 1.5;
+
+/** A pointer rest adds this much per second, capped at DWELL_MAX_WEIGHT. */
+export const DWELL_WEIGHT_PER_SECOND = 0.15;
+export const DWELL_MAX_WEIGHT = 1;
+
+/**
+ * Weight per core event type. Doing something counts more than looking. An
+ * app adds its own types to a copy of these (the demo: USAGE_WEIGHTS in
+ * apps/demo/src/engine/usage.ts).
+ */
+export const CORE_USAGE_WEIGHTS: Readonly<Record<CoreSignalType, number>> = {
+  item_open: 3,
+  action: 3,
+  search: 2.5,
+  filter: 2.5,
+  panel_open: 1.5,
+  panel_focus: 1,
+  shortcut: 0.5,
+  scroll: 0.5,
+  panel_pin: 0.5,
+  suggestion_accept: 1,
+  panel_dwell: 0, // Scaled by duration in eventWeight.
+  panel_dismiss: 0, // Dismissal is handled by the policy, not as negative use.
+  panel_unpin: 0,
+  command: 0,
+  suggestion_dismiss: 0,
+  undo: 0,
+  panel_maximize: RESIZE_USAGE_WEIGHT,
+  panel_restore: RESIZE_USAGE_WEIGHT,
+};
+
+/** One event's weight: a pointer rest by its duration, anything else from `weights` (a type not listed counts 0). */
+export function eventWeight(e: { type: string; detail?: { durationMs?: number } }, weights: Readonly<Record<string, number>> = CORE_USAGE_WEIGHTS): number {
+  if (e.type === "panel_dwell") return Math.min(DWELL_MAX_WEIGHT, ((e.detail?.durationMs ?? 0) / 1000) * DWELL_WEIGHT_PER_SECOND);
+  return weights[e.type] ?? 0;
+}
 
 /** An event as the usage count sees it: the panel it happened in, if any, and when (epoch ms). */
 export interface UsageEvent<P extends string = string> {

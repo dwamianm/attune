@@ -27,6 +27,9 @@ In `packages/` (generic, tested, used by the demo):
 | `createPolicy.ts` | `@attune/core` | The whole policy round, bound to an app once: `computePlan` (membership, docking with its band, order with hysteresis, sizes, anchors and links, quiet panels, the decisions in words) and the plan edits (a command's hero, pins, "Make bigger", undo marks). The app gives its suggestions, link words, help panel, and habit words. |
 | `place.ts` | `@attune/core` | The place step: `placePlan` packs explicit cells with the anchor held still, keeps the pointer's card from moving, and counts the rounds. |
 | `adaptiveStore.ts` | `@attune/core` | `createAdaptiveStore`: the adaptive loop in one framework-free store (event log, scheduler, request and answer, policy, place step, the anchor, pointer and canvas holds, the minimum change interval, undo, commands). Tested with a small writing app; the demo does not use it yet (step 6d). |
+| `suggestions.ts`, `fallback.ts` | `@attune/core` | Defaults for an app with nothing of its own: `basicSuggestions` (the model's next step with the demo's thresholds), `basicRelation` (a plain link tag), and `neutralJudgments` (the calm fallback answer). |
+| `round.ts` | `@attune/jev` | `buildRound` and `readRound`: the state and every core question for one round, and the judgments back. |
+| `request.ts` | `@attune/server` | `parseAdaptRequest`: checks and clips an adapt request body. |
 | `useAdaptive.ts` | `@attune/react` | `useAdaptive(store, selector)`: read an adaptive store (or any store with `getState` and `subscribe`) from React. |
 | `judgments.ts` | `@attune/core` | The typed answers the layout code reads: `ChoiceJudgment`, `ScoreJudgment`, `CoreJudgments`, `CoreCommandJudgments`. |
 | `signals.ts` | `@attune/core` | The core signal vocabulary (`CoreSignalType`: focus, open, dismiss, pin, dwell, item open, search, filter, action, command, shortcut, scroll, suggestions, undo, resize) and `SignalProfile`, which says how an app's own types count: as record opens, work, pointer use, or cue-only. |
@@ -142,10 +145,16 @@ Each step keeps `pnpm test` green and the demo working.
    component). Tailwind v4 only scans the app by default, so the demo's CSS
    then needs `@source "../../../packages/react/src";` for the classes in
    the library components.
-8. **A second app.** `apps/playground` (or similar) with three or four
-   panels of its own, built only from the packages, on
-   `createAdaptiveStore` and `useAdaptive`. Anything it cannot do without
-   copying demo code shows what is still missing.
+8. **A second app.** Done: `apps/playground`, a help desk with four panels
+   of its own, built only from the packages on `createAdaptiveStore` and
+   `useAdaptive`, with its own Jev server. It ran live with Jev. Building it
+   added to the library: `CORE_USAGE_WEIGHTS` and `eventWeight`,
+   `basicSuggestions` and `basicRelation`, the calm fallback
+   (`neutralJudgments`), `buildRound` and `readRound`, `parseAdaptRequest`,
+   cells for the store's first plan, and the store's `anchorLabel`. Still
+   missing, from its README: the canvas components with staged motion (step
+   7), commands that set filters or name records, and the demo's focus aids
+   in the store (6d).
 9. **Publish.** A build per package (for example tsdown) that emits
    JavaScript and `.d.ts` into `dist/`, `exports` that point there,
    versioning (for example changesets), a license, and an npm scope. This

@@ -1,18 +1,16 @@
 {
-  "name": "@attune/demo",
+  "name": "@attune/playground",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "The Attune prototype: a small studio app whose canvas adapts in real time to how the user works, with Jev (TypeSafe System One) deciding how it adapts. It drives the library in packages/.",
+  "description": "A second Attune app, a small help desk, built only from the library packages. It shows what the library can do on its own and what it still lacks.",
   "scripts": {
     "dev": "concurrently -k -n server,web -c blue,magenta \"pnpm dev:server\" \"pnpm dev:web\"",
     "dev:server": "tsx watch server/index.ts",
     "dev:web": "vite",
     "build": "vite build",
-    "deploy:aws": "bash deploy/deploy.sh",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run",
-    "eval": "tsx scripts/eval.ts"
+    "test": "vitest run"
   },
   "dependencies": {
     "@attune/core": "workspace:*",
@@ -21,23 +19,16 @@
     "@attune/server": "workspace:*",
     "@hono/node-server": "catalog:",
     "@typesafe-ai/sdk": "catalog:",
-    "clsx": "^2.1.1",
     "hono": "catalog:",
-    "lucide-react": "^1.49.0",
-    "motion": "^13.4.6",
     "react": "catalog:",
-    "react-dom": "catalog:",
-    "zustand": "^5.0.15"
+    "react-dom": "catalog:"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.3.3",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "concurrently": "catalog:",
-    "esbuild": "0.28.2",
-    "tailwindcss": "^4.3.3",
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

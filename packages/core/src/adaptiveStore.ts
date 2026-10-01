@@ -223,6 +223,8 @@ export interface AdaptiveStoreConfig<
   linked?: (anchor: AnchorRef<P, K>, state: AdaptiveState<P, G, S, K, J, T>) => Partial<Record<P, RelatedRecord<K>[]>> | undefined;
   /** Passed to the policy's computePlan for the app's suggestions. */
   extra?: (state: AdaptiveState<P, G, S, K, J, T>) => X;
+  /** A short name for the anchor's link tags, for example "T-201" or "Larkspur Bakery". Default: the event's label, else its client. */
+  anchorLabel?: (ref: Omit<AnchorRef<P, K>, "at" | "label">, state: AdaptiveState<P, G, S, K, J, T>) => string | undefined;
   /** The app's help panel, never the pointer's hold. */
   helpPanel?: P;
   settings?: Partial<AdaptiveSettings>;
@@ -258,7 +260,9 @@ export function createAdaptiveStore<
   };
 
   const initial = (): State => {
-    const plan = policy.defaultPlan();
+    // With adaptive on, the first plan has its cells at once, so the canvas never shows a plan without them.
+    const columns = config.columns ?? 4;
+    const plan = settings0.adaptive ? withGrid(policy.defaultPlan(), columns) : policy.defaultPlan();
     return {
       events: [],
       plan,
@@ -274,7 +278,7 @@ export function createAdaptiveStore<
       focusedPanel: null,
       anchor: null,
       pointer: { panel: null, down: false },
-      columns: config.columns ?? 4,
+      columns,
       goal: null,
       mode: plan.mode,
       command: null,
@@ -443,8 +447,9 @@ export function createAdaptiveStore<
       armAnchorTimer();
       return;
     }
-    const label = d.label ?? client;
-    setAnchor({ panel, ...(itemKind && itemId ? { itemKind, itemId } : {}), ...(client ? { client } : {}), ...(label ? { label } : {}), source: "work" }, now);
+    const ref = { panel, ...(itemKind && itemId ? { itemKind, itemId } : {}), ...(client ? { client } : {}), source: "work" as const };
+    const label = config.anchorLabel ? config.anchorLabel(ref, s) : (d.label ?? client);
+    setAnchor({ ...ref, ...(label ? { label } : {}) }, now);
   }
 
   // ----- holds ----------------------------------------------------------------
@@ -940,9 +945,11 @@ export function createAdaptiveStore<
       lastPress = null;
       pointerHold = null;
       const fresh = initial();
-      const plan = { ...fresh.plan, round: roundSeq + 1 };
+      const columns = get().columns;
+      const base = get().settings.adaptive ? withGrid(policy.defaultPlan(), columns) : policy.defaultPlan();
+      const plan = { ...base, round: roundSeq + 1 };
       roundSeq += 1;
-      set({ ...fresh, columns: get().columns, plan, settings: get().settings });
+      set({ ...fresh, columns, plan, settings: get().settings });
     },
     adaptNow(trigger = "manual") {
       return scheduler.flush(trigger);

@@ -5,6 +5,7 @@
   "description": "Attune: an AI-native adaptive UI library (packages/) and the prototype app that drives it (apps/demo).",
   "scripts": {
     "dev": "pnpm --filter @attune/demo dev",
+    "dev:playground": "pnpm --filter @attune/playground dev",
     "build": "pnpm -r --if-present build",
     "typecheck": "pnpm -r typecheck",
     "test": "vitest run",
