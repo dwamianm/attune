@@ -32,7 +32,8 @@ apps/
   playground/ @attuneui/playground  A second app, a small help desk, built only from
                             the packages. See apps/playground/README.md.
   docs/     @attuneui/docs    The documentation site (Nextra on Next.js): getting
-                            started, concepts, the packages, and guides.
+                            started, concepts, the packages, and guides, plus
+                            llms.txt and llms-full.txt for AI assistants.
 docs/
   library-roadmap.md        What moves into the library next, and what blocks it.
 ```

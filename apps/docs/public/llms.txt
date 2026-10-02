@@ -1,0 +1,44 @@
+# AttuneUI
+
+> AttuneUI (the `@attuneui/*` npm packages, MIT licensed) is an adaptive UI library for React. An app is a canvas of panels that rearranges itself around what the user is doing: the panel the user works in grows and holds still, the panels that help move next to it, and the rest get out of the way. A model (Jev, from TypeSafe) judges what the user is doing and which panels help; the library's code makes every layout decision.
+
+To set up AttuneUI in an app, read the full guide first: [llms-full.txt](/llms-full.txt). It has every step with code that compiles: install, the catalog, the policy and the store, tracking, the canvas, the server, and the CSS.
+
+The short version:
+
+1. Install `@attuneui/core`, `@attuneui/react`, `motion`, and `react` in the browser app, and `@attuneui/core`, `@attuneui/jev`, `@attuneui/server`, and `@typesafe-ai/sdk@0.6.0` on the server. The packages are ESM only and need React 19, motion 13, and Node 20.19 or newer.
+2. Write a catalog with `defineCatalog`: the panels, the goals (including `"unclear"`), the actions (including `"none"` with `panel: null`), and the goal-to-panel affinity.
+3. Bind the policy once with `createPolicy` (`panelUsage`, `basicSuggestions`, `basicRelation` are enough to start), and create the store with `createAdaptiveStore`, typed by an interface that extends `AdaptiveSpec`. Its `send` posts the request to your own server route.
+4. Call `store.track()` with the core signal types (`item_open`, `search`, `filter`, `action`) from inside the panels.
+5. Render `AdaptiveCanvas` with `useStoreCanvas(store)` and a `renderCard` function, plus `Dock` and `ChangeLine`. Add the CSS rule `[data-canvas] > [data-motion-pop-id] { grid-area: auto !important; }`.
+6. On the server: `checkRequest`, `createRateLimiter`, and `parseAdaptRequest` from `@attuneui/server`, then `buildRound`, `askJev`, and `readRound` from `@attuneui/jev`, with `neutralJudgments` from `@attuneui/core` as the fallback.
+
+Rules: never call the model from the browser (the key stays on the server); do not position or size panels yourself (the library places every card); the app works without a model key (the status reads "offline" and the layout stays calm).
+
+## Setup
+
+- [Full setup guide for AI assistants](/llms-full.txt): every step, with code, in one plain-text file
+- [Getting started](/getting-started): the same steps as a docs page
+- [Style the canvas](/guides/style-the-canvas): the data attributes, the required CSS rule, and the card sizes
+- [The model server](/guides/model-server): the request checks, the time budget, the fallback, and deploying behind a CDN
+
+## Concepts
+
+- [How it works](/concepts/how-it-works): from a click to a relayout, and who owns which decision
+- [The catalog](/concepts/catalog): panels, goals, actions, affinity, and the checks `defineCatalog` runs
+- [Signals and the snapshot](/concepts/signals-and-snapshot): the core signal types, your own types, and the activity in words
+- [The layout policy](/concepts/layout-policy): priority, modes, docking, sizes, density, help, links, and quiet panels
+- [The calm relayout](/concepts/calm-relayout): the anchor, the pointer holds, the change interval, commands, undo, and the staged motion
+
+## Packages
+
+- [@attuneui/core](/packages/core): the store, the catalog, the snapshot, the policy, the grid, and the motion timing
+- [@attuneui/react](/packages/react): `AdaptiveCanvas`, `PanelCard`, `Dock`, `ChangeLine`, `useStoreCanvas`, and hooks
+- [@attuneui/jev](/packages/jev): the model layer for the server
+- [@attuneui/server](/packages/server): request checks and a rate limiter
+
+## Optional
+
+- [Extend the loop](/guides/extend-the-loop): add an app's own features through the store's hooks and `extend`
+- [Examples](/examples): the help desk playground and the studio demo
+- [Releasing the packages](/guides/publishing): how the packages are versioned and published

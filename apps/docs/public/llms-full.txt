@@ -1,0 +1,299 @@
+# AttuneUI: install and set up
+
+> AttuneUI (the `@attuneui/*` npm packages) is an adaptive UI library for React. An app is a canvas of panels that rearranges itself around what the user is doing. A model (Jev, from TypeSafe) judges what the user is working on and which panels help; the library's code makes every layout decision. This file is the complete setup guide for an AI coding assistant.
+
+## Rules to follow
+
+- Never call the model from the browser. The model key lives only on a server. The browser store sends its request to your own server route (for example `POST /api/adapt`), and that server asks the model.
+- The library decides the layout. Do not position, size, show, or hide panels yourself; render each panel's content and let `AdaptiveCanvas` place the cards.
+- Every catalog needs the goal id `"unclear"` and the action id `"none"` (with `panel: null`). No panel may have the id `"unclear"`.
+- Report what the user does with `store.track()` using the core signal types. The canvas reports focus, the pointer, and pointer rests by itself; the store's actions (`pin`, `dismiss`, `open`, `runCommand`, and others) log their own events.
+- The app works without a model key: the server answers with a calm fallback (`neutralJudgments`), and the status reads "offline".
+- Add the one required CSS rule (step 7), or leaving cards jump a cell before they fly to the dock.
+- The packages are ESM only, need Node 20.19 or newer for the server, React 19, and motion 13.
+
+## The packages
+
+| Package | Where it runs | What it gives |
+| --- | --- | --- |
+| `@attuneui/core` | Browser and server | `defineCatalog`, `createPolicy`, `createAdaptiveStore`, the snapshot, the layout policy, the grid, and `neutralJudgments`. No DOM, no React. |
+| `@attuneui/react` | Browser | `AdaptiveCanvas`, `PanelCard`, `Dock`, `ChangeLine`, `useStoreCanvas`, `useAdaptive`. Peers: `react`, `motion`. |
+| `@attuneui/jev` | Server only | `buildRound`, `readRound`, `askJev`, `createRealtimeJevClient`. Peer: `@typesafe-ai/sdk` 0.6.0. |
+| `@attuneui/server` | Server only | `checkRequest`, `createRateLimiter`, `parseAdaptRequest`. |
+
+## Step 1: install
+
+In the browser app:
+
+```sh
+npm install @attuneui/core @attuneui/react motion react react-dom
+```
+
+On the server (any framework; the example uses Hono):
+
+```sh
+npm install @attuneui/core @attuneui/jev @attuneui/server @typesafe-ai/sdk@0.6.0 hono
+```
+
+## Step 2: the catalog
+
+The catalog is the app's vocabulary: panels, goals, next steps, and how strongly each goal implies each panel (0 to 1). The model reads the titles and descriptions, so write them literally. `defineCatalog` checks it when the app starts and throws one `CatalogError` that lists every problem. Share this file between the browser and the server.
+
+```ts
+// src/catalog.ts
+import { defineCatalog } from "@attuneui/core";
+
+export const PANEL_IDS = ["tickets", "customers", "articles", "macros"] as const;
+export type PanelId = (typeof PANEL_IDS)[number];
+export const GOAL_IDS = ["answer_tickets", "research_issue", "unclear"] as const;
+export type GoalId = (typeof GOAL_IDS)[number];
+export const ACTION_IDS = ["reply_ticket", "send_article", "none"] as const;
+export type ActionId = (typeof ACTION_IDS)[number];
+export type RecordKind = "ticket" | "customer" | "article" | "macro";
+
+export const CATALOG = defineCatalog<PanelId, GoalId, ActionId>({
+  panelIds: PANEL_IDS,
+  panels: {
+    tickets: { id: "tickets", title: "Tickets", description: "Support tickets from customers, with status and priority.", icon: "Inbox", defaultVisible: true },
+    customers: { id: "customers", title: "Customers", description: "The companies that use the product.", icon: "Building2", defaultVisible: true },
+    articles: { id: "articles", title: "Articles", description: "Help articles that explain how to use the product.", icon: "BookOpen", defaultVisible: true },
+    macros: { id: "macros", title: "Macros", description: "Saved replies the agent can reuse in a ticket.", icon: "MessageSquareText", defaultVisible: false },
+  },
+  goalIds: GOAL_IDS,
+  goals: {
+    answer_tickets: { label: "Answering tickets", description: "Reading open tickets and replying to customers." },
+    research_issue: { label: "Researching an issue", description: "Looking for how something works, to answer a ticket." },
+    unclear: { label: "Not sure yet", description: "Too little or too mixed activity to tell." },
+  },
+  actionIds: ACTION_IDS,
+  actions: {
+    reply_ticket: { id: "reply_ticket", label: "Reply to the ticket", description: "Write a reply to the open ticket.", panel: "tickets" },
+    send_article: { id: "send_article", label: "Send a help article", description: "Send a help article to the customer.", panel: "articles" },
+    none: { id: "none", label: "", description: "There is no clear next step right now.", panel: null },
+  },
+  goalPanelAffinity: {
+    answer_tickets: { tickets: 1, macros: 0.6, articles: 0.5 },
+    research_issue: { articles: 1, tickets: 0.5 },
+    unclear: {},
+  },
+});
+```
+
+Panel fields: `id`, `title`, `description` (sent to the model), `icon` (a name your UI maps to an icon), `defaultVisible` (shown before any activity), and optional `commandExamples` (set on every panel or on none). Goal fields: `label`, `description`, and optional `notFor` (set on every goal or on none). Every goal needs an affinity entry; use `{}` for none.
+
+## Step 3: the policy and the store (browser)
+
+`createPolicy` binds the layout policy to the catalog once. `createAdaptiveStore` is the adaptive loop: it keeps the event log, asks your server after a short pause, turns the answer into a layout plan, and holds the panel the user works in still. Type it with one `AdaptiveSpec`.
+
+```ts
+// src/engine.ts
+import {
+  basicRelation,
+  basicSuggestions,
+  createAdaptiveStore,
+  createPolicy,
+  eventWeight,
+  panelUsage,
+  type AdaptiveRequest,
+  type AdaptiveResponse,
+  type AdaptiveSpec,
+  type AnchorRef,
+  type CoreCommandJudgments,
+  type CoreJudgments,
+  type CoreSuggestion,
+  type PolicyInput,
+  type RelatedRecord,
+} from "@attuneui/core";
+import { CATALOG, type ActionId, type GoalId, type PanelId, type RecordKind } from "./catalog";
+
+export type Judgments = CoreJudgments<PanelId, GoalId, ActionId> & { command?: CoreCommandJudgments<PanelId, ActionId> };
+type Suggestion = CoreSuggestion<ActionId>;
+type Input = PolicyInput<PanelId, GoalId, ActionId, Suggestion, RecordKind>;
+
+export const POLICY = createPolicy<PanelId, GoalId, ActionId, Suggestion, RecordKind, { next: Partial<Record<PanelId, number>> }, Input, undefined>({
+  catalog: CATALOG,
+  usage: (events, now) => panelUsage(events, now, { panelIds: CATALOG.panelIds, weight: (e) => eventWeight(e) }),
+  suggest: (input) => basicSuggestions(CATALOG, input.judgments),
+  relationFor: (anchor, panel, records) => basicRelation(anchor, panel, records, CATALOG.panels),
+  modelName: "Jev",
+});
+
+export interface DeskSpec extends AdaptiveSpec {
+  panel: PanelId;
+  goal: GoalId;
+  action: ActionId;
+  kind: RecordKind;
+  judgments: Judgments;
+  policyExtra: undefined;
+}
+
+/** Records in other panels that belong to the record the user opened. Replace with your own data join. */
+function linkedRecords(anchor: AnchorRef<PanelId, RecordKind>): Partial<Record<PanelId, RelatedRecord<RecordKind>[]>> {
+  if (!anchor.client || anchor.panel === "customers") return {};
+  return { customers: [{ itemKind: "customer", itemId: anchor.client, label: anchor.client }] };
+}
+
+async function postAdapt(request: AdaptiveRequest, opts: { signal: AbortSignal }): Promise<AdaptiveResponse<Judgments>> {
+  const res = await fetch("/api/adapt", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(request), signal: opts.signal });
+  if (!res.ok) throw new Error(`The server answered ${res.status}`);
+  return (await res.json()) as AdaptiveResponse<Judgments>;
+}
+
+export const store = createAdaptiveStore<DeskSpec>({
+  catalog: CATALOG,
+  policy: POLICY,
+  words: { panels: CATALOG.panels, itemWords: { ticket: "ticket", customer: "customer", article: "help article", macro: "saved reply" } },
+  send: postAdapt,
+  linked: (anchor) => linkedRecords(anchor),
+  // A short name for the link tags: a ticket's id, else the client.
+  anchorLabel: (ref) => (ref.itemKind === "ticket" ? ref.itemId : ref.client),
+});
+
+export type DeskStore = typeof store;
+```
+
+`send` must pass `signal` to `fetch`: the store aborts a request that a newer one replaces.
+
+## Step 4: report what the user does
+
+Use the core signal types in `store.track({ type, panel, detail })`:
+
+| Type | When | Detail |
+| --- | --- | --- |
+| `item_open` | The user opened one record | `itemKind`, `itemId`, `client`, `label`, `via: "pointer"` |
+| `search` | The user searched in a panel | `query` (debounce it, for example 600 ms) |
+| `filter` | The user changed a filter | `label`, or `filter` as an object |
+| `action` | The user did something with a record | `actionId` (an action id from the catalog), `itemId`, `client` |
+
+```tsx
+// Inside the Tickets panel
+<button
+  type="button"
+  onClick={() =>
+    store.track({ type: "item_open", panel: "tickets", detail: { itemKind: "ticket", itemId: ticket.id, client: ticket.customer, label: `${ticket.id} "${ticket.subject}"`, via: "pointer" } })
+  }
+>
+  {ticket.subject}
+</button>
+```
+
+Do not track focus, pointer moves, pins, docking, commands, or suggestions yourself: the canvas and the store's actions log them.
+
+## Step 5: the canvas
+
+`useStoreCanvas(store)` wires the canvas to the store. You render each card's content; the canvas places the cards in their cells and plays the staged relayout.
+
+```tsx
+// src/App.tsx
+import { AdaptiveCanvas, ChangeLine, Dock, useAdaptive, useStoreCanvas } from "@attuneui/react";
+import { CATALOG } from "./catalog";
+import { store } from "./engine";
+
+export function App() {
+  const canvas = useStoreCanvas(store);
+  const canUndo = useAdaptive(store, (s) => s.previousPlan !== null);
+  const status = useAdaptive(store, (s) => s.status);
+  return (
+    <div>
+      <header>
+        <span>{status === "offline" ? "Offline: calm fallback" : status}</span>
+        <ChangeLine decisions={canvas.plan.decisions} {...(canUndo ? { onUndo: () => store.undo() } : {})} />
+      </header>
+      <AdaptiveCanvas
+        {...canvas}
+        className="canvas"
+        cardClassName={(p) => `card size-${p.size}`}
+        renderCard={(p) => (
+          <>
+            <h2>{CATALOG.panels[p.id].title}</h2>
+            {p.relation ? <span title={p.relation.reason}>{p.relation.tag}</span> : null}
+            <button type="button" onClick={() => store.dismiss(p.id)}>Dock</button>
+            {/* Your panel component goes here. Show a short summary when p.size is "compact". */}
+          </>
+        )}
+        empty={<p>Everything is in the dock.</p>}
+      />
+      <Dock docked={canvas.plan.docked} label={(id) => CATALOG.panels[id].title} onOpen={(id) => store.open(id)} />
+    </div>
+  );
+}
+```
+
+Other store actions for the UI: `pin(id)`, `unpin(id)`, `maximize(id)`, `restore(id)`, `dismiss(id)`, `open(id)`, `runCommand(text)` (a command bar), `acceptSuggestion(s)` and `dismissSuggestion(s)` (for `plan.suggestions`), `undo()`, `setSettings({ adaptive, frozen })`, and `reset()`. Read state with `useAdaptive(store, selector)`: `plan`, `status`, `goal`, `command`, `pinned`, `bigger`, `anchor`, `history`.
+
+## Step 6: the server
+
+The server checks the request, asks the core questions in one round with a time budget, and always answers.
+
+```ts
+// server/app.ts
+import { neutralJudgments } from "@attuneui/core";
+import { askJev, buildRound, createRealtimeJevClient, readRound } from "@attuneui/jev";
+import { checkRequest, createRateLimiter, parseAdaptRequest } from "@attuneui/server";
+import { Hono } from "hono";
+import { CATALOG } from "../src/catalog";
+
+const apiKey = process.env.JEV_API_KEY;
+const client = apiKey ? createRealtimeJevClient({ apiKey, model: "jev-latest" }) : null;
+const allow = createRateLimiter();
+
+export const app = new Hono();
+
+app.get("/api/health", (c) => c.json({ ok: true, jev: client !== null }));
+
+app.post("/api/adapt", async (c) => {
+  const refused = checkRequest({ host: c.req.header("host"), origin: c.req.header("origin"), contentType: c.req.header("content-type") }, { requireJson: true });
+  if (refused) return c.json({ error: refused.error }, refused.status);
+  if (!allow()) return c.json({ error: "Too many requests." }, 429);
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "The body is not valid JSON." }, 400);
+  }
+  const parsed = parseAdaptRequest(body);
+  if (!parsed.ok) return c.json({ error: parsed.error }, 400);
+  const { version, snapshot, command } = parsed.request;
+  const { state, questions } = buildRound(CATALOG, { app: "A help desk for a small software company.", snapshot, command: command ?? null });
+  const round = await askJev({
+    client,
+    state,
+    questions,
+    read: (answers) => readRound(answers, questions, CATALOG),
+    fallback: { name: "fallback", answer: () => neutralJudgments(CATALOG, command ? { command } : {}) },
+    budgetMs: 4_500,
+    signal: c.req.raw.signal,
+    logTag: `[adapt] v${version}`,
+  });
+  return c.json({ version, ...round });
+});
+```
+
+Start it on localhost (for example with `@hono/node-server`) and proxy `/api` to it from the browser app's dev server (in Vite: `server.proxy = { "/api": "http://localhost:8791" }`). `checkRequest` accepts only loopback hosts and origins, so the dev server and the API must both run on localhost. Behind a CDN, pass `{ requireJson, edge: { secret, origin } }` and have the CDN add the secret in the `x-origin-verify` header. Keep `JEV_API_KEY` in an environment variable or a `.env` file that git ignores.
+
+## Step 7: the CSS
+
+The canvas draws only its layout. Style it with class names and these attributes: `data-canvas` on the grid; `data-panel`, `data-size` (`hero`, `large`, `standard`, `compact`), `data-anchor`, `data-linked`, `data-change`, `data-quiet`, and `data-front-ring` on each card; `data-ghost` on a docked card's empty slot; `data-dock-id` on each dock item. One rule is required:
+
+```css
+[data-canvas] > [data-motion-pop-id] {
+  grid-area: auto !important;
+}
+.card { border: 1px solid #ddd; border-radius: 12px; padding: 10px 12px; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+.card[data-anchor] { border-color: royalblue; }
+.card[data-linked] { border-color: teal; }
+[data-ghost] { border: 1px dashed #ddd; border-radius: 12px; }
+```
+
+## Check the setup
+
+1. Start the server and the browser app. The status reads "offline" without a key, which is expected.
+2. Open a record in a panel. About a second later the canvas re-plans: the panel you worked in holds still, linked panels get their tag, and the change line says what changed.
+3. With `JEV_API_KEY` set, the status reads "idle" after a round, and the goal (`useAdaptive(store, (s) => s.goal)`) follows the work.
+
+## Going further
+
+- An app's own features (its own event types, extra state, commands that set filters, custom suggestions) join the loop through hooks in the store config and an `extend(kernel)` function that returns extra state, actions, and hooks. Do not write a second loop.
+- To keep the state in zustand, use `createAdaptiveEngine(config, { get, set })` inside `create()(...)` instead of `createAdaptiveStore`.
+- To draw each card yourself, pass `card` to `AdaptiveCanvas` with a component that renders `PanelCard` with the props it receives.
+- A complete example app built only from the packages: `apps/playground` in the repository (a help desk with four panels, its own data, and its own Jev server).

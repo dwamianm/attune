@@ -13,6 +13,15 @@ The documentation site for the Attune packages, built with
 (Pagefind, into `public/_pagefind`, which git ignores). `pnpm start` serves
 the build. Search works only on a build, not in `pnpm dev`.
 
+## For AI assistants
+
+`public/llms.txt` follows the [llms.txt](https://llmstxt.org) format: a
+short summary of how to install and set up the packages, and links to the
+pages. `public/llms-full.txt` is the whole setup guide in one plain-text
+file, with code that compiles. The site serves them at `/llms.txt` and
+`/llms-full.txt`. Keep them in step with the packages and with
+`content/getting-started.mdx`.
+
 ## Write a page
 
 Pages are MDX files in `content/`. A folder is a sidebar section, and its
