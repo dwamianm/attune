@@ -4,7 +4,7 @@
  * user typed one), and readRound turns the answers into the core judgments.
  * An app with its own questions (the demo) adds them next to these instead.
  */
-import type { Catalog, CoreCommandJudgments, CoreJudgments } from "@attune/core";
+import type { Catalog, CoreCommandJudgments, CoreJudgments } from "@attuneui/core";
 import type { Question } from "@typesafe-ai/sdk";
 import { isRecord, JevAnswerError, type QuestionMap } from "./answers.ts";
 import { readCoreCommand, readCoreJudgments } from "./normalize.ts";

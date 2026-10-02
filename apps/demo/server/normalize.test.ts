@@ -7,7 +7,7 @@ import type { Question } from "@typesafe-ai/sdk";
 import { describe, expect, it } from "vitest";
 import { PANEL_IDS } from "../shared/catalog.ts";
 import type { AdaptRequest, PrepRequest, RecordCandidate } from "../shared/types.ts";
-import { JevAnswerError } from "@attune/jev";
+import { JevAnswerError } from "@attuneui/jev";
 import { normalizeJudgments, normalizePrepJudgments } from "./normalize.ts";
 import { PREP_QUESTION_IDS, QUESTION_IDS, buildPrepQuestions, buildQuestions } from "./questions.ts";
 

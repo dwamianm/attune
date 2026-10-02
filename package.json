@@ -4,18 +4,23 @@
   "type": "module",
   "description": "Attune: an AI-native adaptive UI library (packages/) and the prototype app that drives it (apps/demo).",
   "scripts": {
-    "dev": "pnpm --filter @attune/demo dev",
-    "dev:playground": "pnpm --filter @attune/playground dev",
+    "dev": "pnpm --filter @attuneui/demo dev",
+    "dev:playground": "pnpm --filter @attuneui/playground dev",
     "build": "pnpm -r --if-present build",
+    "build:packages": "pnpm -r --filter \"./packages/*\" build",
     "typecheck": "pnpm -r typecheck",
     "test": "vitest run",
-    "eval": "pnpm --filter @attune/demo eval",
-    "deploy:aws": "pnpm --filter @attune/demo deploy:aws"
+    "eval": "pnpm --filter @attuneui/demo eval",
+    "deploy:aws": "pnpm --filter @attuneui/demo deploy:aws",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "pnpm build:packages && changeset publish"
   },
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
   },
   "devDependencies": {
+    "@changesets/cli": "^3.0.3",
     "vitest": "catalog:"
   },
   "pnpm": {

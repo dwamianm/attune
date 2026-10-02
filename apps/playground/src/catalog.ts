@@ -3,7 +3,7 @@
  * three next steps. Descriptions are sent to Jev, so they are concrete and
  * literal.
  */
-import { defineCatalog, type Catalog } from "@attune/core";
+import { defineCatalog, type Catalog } from "@attuneui/core";
 
 export const PANEL_IDS = ["tickets", "customers", "articles", "macros"] as const;
 export type PanelId = (typeof PANEL_IDS)[number];

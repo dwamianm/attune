@@ -9,7 +9,7 @@ import { useShallow } from "zustand/react/shallow";
 import type { Message } from "../../../shared/fixtures.ts";
 import { useEngine } from "../../engine/store.ts";
 import { matchesQuery, messageLabel, relativeTime } from "../format.ts";
-import { hasModifier, isTextField, useDebouncedCallback, useNow, useWindowKeydown } from "@attune/react";
+import { hasModifier, isTextField, useDebouncedCallback, useNow, useWindowKeydown } from "@attuneui/react";
 import {
   Button,
   ClientFilterChip,

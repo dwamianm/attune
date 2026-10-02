@@ -1,9 +1,9 @@
 /**
  * The one TypeSafe client the server uses to ask Jev questions: the
- * real-time client from @attune/jev (short per-attempt timeout, one quick
+ * real-time client from @attuneui/jev (short per-attempt timeout, one quick
  * retry), made once from the server config.
  */
-import { createRealtimeJevClient } from "@attune/jev";
+import { createRealtimeJevClient } from "@attuneui/jev";
 import type { TypeSafeClient } from "@typesafe-ai/sdk";
 import { config } from "./env.ts";
 

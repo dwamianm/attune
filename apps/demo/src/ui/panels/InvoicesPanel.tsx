@@ -14,7 +14,7 @@ import type { InvoiceStatusArg } from "../../../shared/types.ts";
 import type { EngineActions } from "../../engine/contract.ts";
 import { useEngine } from "../../engine/store.ts";
 import { formatDate, formatMoney, INVOICE_STATUS_LABEL, invoiceDueText, invoiceLabel, relativeTime } from "../format.ts";
-import { useNow } from "@attune/react";
+import { useNow } from "@attuneui/react";
 import { useStepAction } from "../linking.tsx";
 import {
   Button,

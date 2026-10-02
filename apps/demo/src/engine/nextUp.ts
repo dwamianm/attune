@@ -31,7 +31,7 @@ import {
 } from "../ui/format.ts";
 import type { AppData, LinkSet, PanelViewState, UpNextDone, UpNextPick } from "./contract.ts";
 import { findLinked, kindOfId } from "./relations.ts";
-import { matchesQuery, numberWord } from "@attune/core";
+import { matchesQuery, numberWord } from "@attuneui/core";
 
 // ---------------------------------------------------------------------------
 // Constants. Demo defaults; tune them here.

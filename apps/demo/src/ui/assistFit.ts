@@ -3,7 +3,7 @@
  * the Done card or Up next, and the suggested next steps on one line of a
  * fixed height. This file is the demo's part of it: which cards there are,
  * and their priority order. How they fit the line (in full, as compact
- * pills, or in the "+N" list) is fitRow in @attune/core.
+ * pills, or in the "+N" list) is fitRow in @attuneui/core.
  *
  * In the demo the first card is the most time-sensitive one: the prep card
  * shows the count of things to handle as its shorter form, and the keys work

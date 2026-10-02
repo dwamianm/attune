@@ -10,11 +10,11 @@ import { panelTitle, type PanelId } from "../../shared/catalog.ts";
 import { CLIENTS, EVENTS, INVOICES, MESSAGES, PROJECTS, TASKS, TEAM, type CalendarEvent, type Client, type Invoice, type Message, type Project, type Task } from "../../shared/fixtures.ts";
 import type { AnchorRef, ItemKind, PanelRelation, RelatedRecord } from "../../shared/types.ts";
 import type { AppData, PanelViewState } from "./contract.ts";
-import { matchesQuery } from "@attune/core";
+import { matchesQuery } from "@attuneui/core";
 
 /**
  * Most panels one link set holds. A click links at most LINKED_PANELS_MAX
- * (@attune/core);
+ * (@attuneui/core);
  * a meeting prep view (focus aid 4) links every record kind of one client,
  * which is five panels.
  */

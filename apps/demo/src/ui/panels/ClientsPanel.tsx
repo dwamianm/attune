@@ -9,7 +9,7 @@ import { useShallow } from "zustand/react/shallow";
 import { CLIENTS, type Client } from "../../../shared/fixtures.ts";
 import { useEngine } from "../../engine/store.ts";
 import { formatDate, matchesQuery } from "../format.ts";
-import { useDebouncedCallback } from "@attune/react";
+import { useDebouncedCallback } from "@attuneui/react";
 import {
   Button,
   Compact,

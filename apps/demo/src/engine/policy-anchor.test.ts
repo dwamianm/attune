@@ -8,7 +8,7 @@ import type { LayoutMode, PanelId } from "../../shared/catalog.ts";
 import { EVENTS, INVOICES, MESSAGES, PROJECTS, TASKS } from "../../shared/fixtures.ts";
 import type { AnchorRef, LayoutPlan } from "../../shared/types.ts";
 import type { AppData, PolicyInput } from "./contract.ts";
-import { LINK_PRIORITY_BOOST, LINKED_PANELS_MAX, packGrid, SIZE_RANK } from "@attune/core";
+import { LINK_PRIORITY_BOOST, LINKED_PANELS_MAX, packGrid, SIZE_RANK } from "@attuneui/core";
 import { applyPromotion, computePlan, defaultPlan, remarkPanels, scorePanels } from "./policy.ts";
 import { findLinked } from "./relations.ts";
 import { choiceJ, makeJudgments, type JudgmentOverrides } from "./test-helpers.ts";

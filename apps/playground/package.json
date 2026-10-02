@@ -1,5 +1,5 @@
 {
-  "name": "@attune/playground",
+  "name": "@attuneui/playground",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -13,10 +13,10 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@attune/core": "workspace:*",
-    "@attune/jev": "workspace:*",
-    "@attune/react": "workspace:*",
-    "@attune/server": "workspace:*",
+    "@attuneui/core": "workspace:*",
+    "@attuneui/jev": "workspace:*",
+    "@attuneui/react": "workspace:*",
+    "@attuneui/server": "workspace:*",
     "@hono/node-server": "catalog:",
     "@typesafe-ai/sdk": "catalog:",
     "hono": "catalog:",

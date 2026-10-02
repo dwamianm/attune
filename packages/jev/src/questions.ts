@@ -25,7 +25,7 @@
  * The wording was tuned in the demo app against live Jev answers; the
  * comments next to each piece say what changed and why.
  */
-import { commandActivityLine, LAYOUT_MODE_DEFS, LAYOUT_MODES, NO_ACTION, PANEL_UNCLEAR, type Catalog, type InteractionSnapshot } from "@attune/core";
+import { commandActivityLine, LAYOUT_MODE_DEFS, LAYOUT_MODES, NO_ACTION, PANEL_UNCLEAR, type Catalog, type InteractionSnapshot } from "@attuneui/core";
 import { choice, noul, score } from "@typesafe-ai/sdk";
 import type { EntryType, JsonValue, Question } from "@typesafe-ai/sdk";
 

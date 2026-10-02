@@ -4,14 +4,14 @@
  * app.request() and no open port.
  *
  * Every /api route answers only the app on this machine (the guard in
- * @attune/server), and each Jev route has its own rate limit and a capped,
+ * @attuneui/server), and each Jev route has its own rate limit and a capped,
  * validated body.
  */
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { adapt as runAdapt, prep as runPrep } from "./adapt.ts";
 import { config, hasJevKey } from "./env.ts";
-import { checkRequest, createRateLimiter, EDGE_SECRET_HEADER, type EdgeAccess } from "@attune/server";
+import { checkRequest, createRateLimiter, EDGE_SECRET_HEADER, type EdgeAccess } from "@attuneui/server";
 import { parseAdaptRequest, parsePrepRequest } from "./validate.ts";
 
 /**
@@ -42,7 +42,7 @@ export function createApp(deps: AppDeps = {}): Hono {
   const allowPrep = createRateLimiter(PREP_RATE_MAX, PREP_RATE_WINDOW_MS, deps.now);
   const limit = bodyLimit({ maxSize: MAX_BODY_BYTES, onError: (c) => c.json({ error: "Request body is too large." }, 413) });
 
-  // Only the app on this machine (or, deployed, the site behind CloudFront) may call the API (see checkRequest in @attune/server).
+  // Only the app on this machine (or, deployed, the site behind CloudFront) may call the API (see checkRequest in @attuneui/server).
   app.use("/api/*", async (c, next) => {
     const refused = checkRequest(
       {

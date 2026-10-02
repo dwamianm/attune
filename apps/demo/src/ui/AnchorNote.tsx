@@ -19,9 +19,9 @@ import { Link2, Undo2 } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { PanelId } from "../../shared/catalog.ts";
-import { ANCHOR_NOTE_MS, REDUCED_FADE_MS } from "@attune/core";
+import { ANCHOR_NOTE_MS, REDUCED_FADE_MS } from "@attuneui/core";
 import { ANCHOR_NOTE_ATTR, LINK_ATTR, panelHeaderSelector } from "./domHooks.ts";
-import { CARD_CONTROL_ATTR, useLatest } from "@attune/react";
+import { CARD_CONTROL_ATTR, useLatest } from "@attuneui/react";
 
 /** While the pointer or focus is on the note, check again this often before hiding it. */
 const NOTE_RECHECK_MS = 1000;

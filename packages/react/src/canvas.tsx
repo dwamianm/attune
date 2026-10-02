@@ -4,7 +4,7 @@
  * holds still) and every change staged so the eye can follow it: the anchor
  * grows first, leaving cards fly into their dock icon, moved cards glide,
  * and new cards arrive one at a time from the anchor's side (roundCues and
- * the stage timing in @attune/core, choreography.ts). Reduced motion turns
+ * the stage timing in @attuneui/core, choreography.ts). Reduced motion turns
  * every move into a short fade.
  *
  * Around the plan the canvas keeps the calm relayout rules on screen:
@@ -65,7 +65,7 @@ import {
   type PanelPlacement,
   type PanelSize,
   type RoundCues,
-} from "@attune/core";
+} from "@attuneui/core";
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion, type TargetAndTransition, type Transition } from "motion/react";
 import {
   createContext,
@@ -97,7 +97,7 @@ export const GHOST_ATTR = "data-ghost";
 /** On a card's own controls (pin, dock, tags): pressing or focusing them is not work in the panel, so it does not focus the panel. */
 export const CARD_CONTROL_ATTR = "data-card-control";
 
-/** One row track: half a standard card (CELL_SPANS in @attune/core). */
+/** One row track: half a standard card (CELL_SPANS in @attuneui/core). */
 export const ROW_HEIGHT_PX = 104;
 /** A pointer rest shorter than this is noise, not interest. */
 export const DWELL_MIN_MS = 1_500;

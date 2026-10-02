@@ -16,7 +16,7 @@ import type { LinkSet } from "../engine/contract.ts";
 import { useEngine } from "../engine/store.ts";
 import type { RoundCues } from "./choreography.ts";
 import { ITEM_KIND_ATTR, itemAttrs, LINK_ATTR, type LinkRole } from "./domHooks.ts";
-import { useLatest, useRoundCues as useCanvasRoundCues } from "@attune/react";
+import { useLatest, useRoundCues as useCanvasRoundCues } from "@attuneui/react";
 
 /**
  * The plan's anchor while it is still the live one. The anchor note and the

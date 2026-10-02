@@ -43,7 +43,7 @@ import { recordCardText, recordChipText } from "../engine/nextUp.ts";
 import { useEngine } from "../engine/store.ts";
 import type { AssistEntry } from "./AssistRow.tsx";
 import { appBarSelector, commandBarSelector, panelSelector } from "./domHooks.ts";
-import { hasModifier, isTextField, useNow, useWindowKeydown } from "@attune/react";
+import { hasModifier, isTextField, useNow, useWindowKeydown } from "@attuneui/react";
 
 /**
  * A one-letter shortcut belongs to something else first: a text field, the

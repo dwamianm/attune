@@ -1,6 +1,6 @@
 /**
  * The demo's adaptation engine: the library's adaptive loop
- * (createAdaptiveEngine in @attune/core) in one zustand store, with the
+ * (createAdaptiveEngine in @attuneui/core) in one zustand store, with the
  * demo's own parts as its extension.
  *
  * UI code reads state with useEngine(selector) and reports what the user does
@@ -86,7 +86,7 @@ import {
   type AdaptiveSpec,
   type AdaptiveState,
   type AdaptiveActions,
-} from "@attune/core";
+} from "@attuneui/core";
 import {
   clearSavedHabits,
   emptyHabits,
@@ -192,7 +192,7 @@ export {
   UNDO_HOLD_MS,
   UNDO_MEMORY_MS,
   UNDO_TOP_PANEL_MARGIN,
-} from "@attune/core";
+} from "@attuneui/core";
 
 /** localStorage key for settings, pins, and the panels the user made bigger. */
 export const STORAGE_KEY = "floouid:v1";

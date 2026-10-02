@@ -1,4 +1,4 @@
-import type { LayoutPlan } from "@attune/core";
+import type { LayoutPlan } from "@attuneui/core";
 import { createElement } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";

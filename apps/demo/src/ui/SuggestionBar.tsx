@@ -21,7 +21,7 @@ import type { Suggestion } from "../../shared/types.ts";
 import { useEngine } from "../engine/store.ts";
 import type { AssistEntry } from "./AssistRow.tsx";
 import { panelSelector } from "./domHooks.ts";
-import { hasModifier, isTextField, useWindowKeydown } from "@attune/react";
+import { hasModifier, isTextField, useWindowKeydown } from "@attuneui/react";
 
 function key(s: Suggestion): string {
   return `${s.actionId}:${s.args.client ?? ""}:${s.args.invoiceId ?? ""}:${s.args.taskId ?? ""}`;

@@ -13,7 +13,7 @@ import { COMMAND_MAX_LENGTH } from "../../shared/types.ts";
 import type { CommandOutcome } from "../engine/contract.ts";
 import { useEngine } from "../engine/store.ts";
 import { COMMAND_BAR_ATTR } from "./domHooks.ts";
-import { useWindowKeydown } from "@attune/react";
+import { useWindowKeydown } from "@attuneui/react";
 import { MOD_K, useCommandFocusListener } from "./hooks.ts";
 
 const OUTCOME_ICON: Record<CommandOutcome["status"], { icon: typeof CircleCheck; className: string }> = {

@@ -41,18 +41,18 @@ the packages.
 Gaps found and filled in the library while building it:
 
 - **Usage weights.** Every app needed the same weights for the core events.
-  They are `CORE_USAGE_WEIGHTS` and `eventWeight` in `@attune/core` now (the
+  They are `CORE_USAGE_WEIGHTS` and `eventWeight` in `@attuneui/core` now (the
   demo builds its own on them).
 - **Suggestions and link tags.** An app with no record-specific
   suggestions had none. `basicSuggestions` and `basicRelation` in
-  `@attune/core` give the catalog's action label and a plain "Linked to ..."
+  `@attuneui/core` give the catalog's action label and a plain "Linked to ..."
   tag, with the demo's thresholds.
 - **A fallback answer.** Without a key there was no answer at all. The calm
-  fallback is `neutralJudgments` in `@attune/core`: every panel supporting,
+  fallback is `neutralJudgments` in `@attuneui/core`: every panel supporting,
   no goal, no next step, and a command's panel when it names one.
-- **One-call rounds.** `buildRound` and `readRound` in `@attune/jev` build
+- **One-call rounds.** `buildRound` and `readRound` in `@attuneui/jev` build
   the state and every core question and read the answers back.
-- **Request checks.** `parseAdaptRequest` in `@attune/server` checks and
+- **Request checks.** `parseAdaptRequest` in `@attuneui/server` checks and
   clips a request body.
 - **The first plan had no cells.** The canvas showed every card one row
   tall until the first round. `createAdaptiveStore` now gives its first plan

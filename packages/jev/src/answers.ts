@@ -7,7 +7,7 @@
  * JevAnswerError, so the app can fall back to its own answer instead of
  * handing the layout code half a judgment.
  */
-import type { ChoiceJudgment, ScoreJudgment } from "@attune/core";
+import type { ChoiceJudgment, ScoreJudgment } from "@attuneui/core";
 import type { Question } from "@typesafe-ai/sdk";
 
 export class JevAnswerError extends Error {

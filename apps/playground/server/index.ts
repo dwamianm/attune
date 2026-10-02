@@ -5,7 +5,7 @@
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
-import { createRealtimeJevClient } from "@attune/jev";
+import { createRealtimeJevClient } from "@attuneui/jev";
 import { createApp } from "./app.ts";
 
 /** Not the demo's 8790, so both can run at once. */

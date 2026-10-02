@@ -39,7 +39,7 @@ import {
   LINK_LINE_SHOW_MS,
   LINK_TAG_PULSE_MS,
   STAGE_EASE,
-} from "@attune/core";
+} from "@attuneui/core";
 import {
   appBarSelector,
   itemSelector,
@@ -53,7 +53,7 @@ import {
   PANEL_ATTR,
   panelSelector,
 } from "./domHooks.ts";
-import { useLatest } from "@attune/react";
+import { useLatest } from "@attuneui/react";
 import { anchorItem } from "./linking.tsx";
 
 /** Lines leaving together run this far apart in a gutter, so three fit side by side in the 10 to 16 px gap. */

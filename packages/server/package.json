@@ -1,16 +1,45 @@
 {
-  "name": "@attune/server",
+  "name": "@attuneui/server",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "Server helpers for Attune apps that hold a model API key: request guards and a rate limiter.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dwamianm/attune.git",
+    "directory": "packages/server"
+  },
+  "bugs": "https://github.com/dwamianm/attune/issues",
+  "keywords": [
+    "attune",
+    "adaptive-ui",
+    "ai",
+    "layout"
+  ],
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts"
   },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
   "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepack": "node ../../scripts/build-package.mjs"
   },
   "devDependencies": {
     "@types/node": "catalog:",

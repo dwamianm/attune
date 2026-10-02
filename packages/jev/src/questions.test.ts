@@ -1,4 +1,4 @@
-import { commandActivityLine, LAYOUT_MODES, PANEL_UNCLEAR } from "@attune/core";
+import { commandActivityLine, LAYOUT_MODES, PANEL_UNCLEAR } from "@attuneui/core";
 import type { Question } from "@typesafe-ai/sdk";
 import { describe, expect, it } from "vitest";
 import { buildCoreCommandQuestions, buildCoreQuestions, buildCoreState, CORE_QUESTION_IDS, nowEvidence, relevancePanel } from "./questions.ts";

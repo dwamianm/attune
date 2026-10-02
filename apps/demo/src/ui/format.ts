@@ -185,4 +185,4 @@ export function percent(p: number): string {
 }
 
 // Search matching lives in the engine, so suggestions and panels agree on what is shown.
-export { matchesQuery } from "@attune/core";
+export { matchesQuery } from "@attuneui/core";

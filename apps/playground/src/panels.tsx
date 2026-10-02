@@ -3,8 +3,8 @@
  * store.track(), in the core signal types (item_open, filter, search, action).
  * `linked` holds the record ids the plan links to the anchor, which the rows tint.
  */
-import { matchesQuery } from "@attune/core";
-import { useDebouncedCallback } from "@attune/react";
+import { matchesQuery } from "@attuneui/core";
+import { useDebouncedCallback } from "@attuneui/react";
 import { useState } from "react";
 import { ARTICLES, CUSTOMERS, MACROS, type Ticket } from "./data.ts";
 import type { DeskStore } from "./engine.ts";

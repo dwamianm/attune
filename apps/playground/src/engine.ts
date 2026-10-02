@@ -19,8 +19,8 @@ import {
   type EventWords,
   type PolicyInput,
   type RelatedRecord,
-} from "@attune/core";
-import type { RoundJudgments } from "@attune/jev";
+} from "@attuneui/core";
+import type { RoundJudgments } from "@attuneui/jev";
 import { CATALOG, type ActionId, type GoalId, type PanelId, type RecordKind } from "./catalog.ts";
 import { ARTICLES, CUSTOMERS, TICKETS } from "./data.ts";
 

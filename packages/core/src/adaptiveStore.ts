@@ -31,7 +31,7 @@
  * extension.
  *
  * Two ways to hold the state: createAdaptiveStore keeps it in a small store
- * of its own (getState, setState, subscribe; @attune/react has
+ * of its own (getState, setState, subscribe; @attuneui/react has
  * useAdaptive), and createAdaptiveEngine runs on a host's get and set, for
  * example a zustand store's initializer. The state carries the actions, as
  * in zustand, and createAdaptiveStore also puts them on the store.
@@ -103,7 +103,7 @@ export const POINTER_MOVE_HOLD_MS = 3_000;
 export const POINTER_LEAVE_HOLD_MS = 5_000;
 /** The default command rule (no `resolveCommand` hook): a panel answer at or above this applies, and the panel becomes the hero. */
 export const COMMAND_PANEL_AT = 0.6;
-/** Command text longer than this is clipped before it is sent. Matches COMMAND_MAX_LENGTH in @attune/server. */
+/** Command text longer than this is clipped before it is sent. Matches COMMAND_MAX_LENGTH in @attuneui/server. */
 export const COMMAND_TEXT_MAX = 300;
 /** A dismissal this soon after opening a panel records how long it was open. */
 export const DISMISS_DURATION_WINDOW_MS = 10 * 60_000;

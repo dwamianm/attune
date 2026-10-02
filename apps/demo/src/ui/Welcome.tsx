@@ -51,7 +51,7 @@ import {
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { useLatest } from "@attune/react";
+import { useLatest } from "@attuneui/react";
 import { MOD_K } from "./hooks.ts";
 
 /** localStorage key set once the visitor closes the welcome screen. */

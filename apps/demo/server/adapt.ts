@@ -1,7 +1,7 @@
 /**
  * One adaptation round: snapshot in, typed judgments out.
  *
- * askJev in @attune/jev sends every question in one request, reads the
+ * askJev in @attuneui/jev sends every question in one request, reads the
  * answers, and keeps to a total budget. If anything goes wrong (no key,
  * network, timeout, bad answer), it logs one line and answers with the
  * heuristic instead, so the UI never stalls.
@@ -12,7 +12,7 @@
  *
  * No HTTP here: the eval script imports adapt() and prep() directly in Node.
  */
-import { askJev } from "@attune/jev";
+import { askJev } from "@attuneui/jev";
 import type { AdaptRequest, AdaptResponse, PrepRequest, PrepResponse } from "../shared/types.ts";
 import { getJevClient } from "./jev.ts";
 import { heuristicJudgments, heuristicPrepJudgments } from "./heuristic.ts";

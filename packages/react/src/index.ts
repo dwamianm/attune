@@ -1,7 +1,7 @@
 /**
- * @attune/react: React bindings for Attune: the adaptive canvas with staged
+ * @attuneui/react: React bindings for Attune: the adaptive canvas with staged
  * relayouts (AdaptiveCanvas, PanelCard, Dock, ChangeLine), useAdaptive and
- * useStoreCanvas for a store from createAdaptiveStore (@attune/core), and
+ * useStoreCanvas for a store from createAdaptiveStore (@attuneui/core), and
  * small hooks for keyboard, sizes, roving lists, and popovers.
  */
 export * from "./canvas.tsx";

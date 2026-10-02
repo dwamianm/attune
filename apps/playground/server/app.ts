@@ -1,12 +1,12 @@
 /**
  * The playground's API, built only from the library: the guard and the
- * request check (@attune/server), one Jev round with the core questions and
- * the calm fallback (@attune/jev, @attune/core). Split from index.ts so tests
+ * request check (@attuneui/server), one Jev round with the core questions and
+ * the calm fallback (@attuneui/jev, @attuneui/core). Split from index.ts so tests
  * can call it with app.request() and no open port.
  */
-import { neutralJudgments } from "@attune/core";
-import { askJev, buildRound, readRound } from "@attune/jev";
-import { checkRequest, createRateLimiter, parseAdaptRequest } from "@attune/server";
+import { neutralJudgments } from "@attuneui/core";
+import { askJev, buildRound, readRound } from "@attuneui/jev";
+import { checkRequest, createRateLimiter, parseAdaptRequest } from "@attuneui/server";
 import type { TypeSafeClient } from "@typesafe-ai/sdk";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
@@ -29,7 +29,7 @@ export function createApp(deps: AppDeps) {
   const app = new Hono();
   const allow = createRateLimiter(undefined, undefined, deps.now);
 
-  // Only the app on this machine may spend the key (see checkRequest in @attune/server).
+  // Only the app on this machine may spend the key (see checkRequest in @attuneui/server).
   app.use("/api/*", async (c, next) => {
     const refused = checkRequest(
       { host: c.req.header("host"), origin: c.req.header("origin"), contentType: c.req.header("content-type") },

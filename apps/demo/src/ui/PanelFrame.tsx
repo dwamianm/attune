@@ -1,6 +1,6 @@
 /**
  * The demo's card: its look, header, link tag, "Why here?" popover, and
- * body around the library card (PanelCard in @attune/react), which owns the
+ * body around the library card (PanelCard in @attuneui/react), which owns the
  * motion and the hands: it glides to its new cell and size whenever the plan
  * changes, plays its part of an anchored round (the anchor grows first, a
  * leaving card flies into its dock icon, a moving card glides, a new card
@@ -39,10 +39,10 @@ import { useShallow } from "zustand/react/shallow";
 import { PANELS, type PanelId } from "../../shared/catalog.ts";
 import type { ItemKind, PanelPlacement, PanelRelation, PanelSize } from "../../shared/types.ts";
 import { moveToFrontOn } from "../engine/focusAids.ts";
-import { REDUCED_FADE_MS, SIZE_RANK } from "@attune/core";
+import { REDUCED_FADE_MS, SIZE_RANK } from "@attuneui/core";
 import { useEngine } from "../engine/store.ts";
 import { LINK_ATTR, LINK_NEXT_ATTR, LINK_REMOVE_ATTR, LINK_TAG_ATTR, PANEL_HEADER_ATTR } from "./domHooks.ts";
-import { CARD_CONTROL_ATTR, cardLayoutTransition, PanelCard, useCanvasEdit, useThrottleGate, useWindowKeydown, type PanelCardProps } from "@attune/react";
+import { CARD_CONTROL_ATTR, cardLayoutTransition, PanelCard, useCanvasEdit, useThrottleGate, useWindowKeydown, type PanelCardProps } from "@attuneui/react";
 import { panelIcon } from "./icons.ts";
 import { anchorItem, LinkContext, revealInPanel, useLinks, type LinkLookup, type LinkMark } from "./linking.tsx";
 

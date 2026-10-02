@@ -1,15 +1,15 @@
 /**
  * Code-measured recent use per panel, one of the three inputs to layout
  * priority. The count itself (decay with USAGE_HALF_LIFE_MS, normalized so
- * the busiest panel is 1) is rawUsage and panelUsage in @attune/core. This
+ * the busiest panel is 1) is rawUsage and panelUsage in @attuneui/core. This
  * file says how much each of the demo's events counts, and binds the count
  * to the demo's panels (CATALOG).
  */
-import { CORE_USAGE_WEIGHTS, eventWeight, panelUsage as countPanelUsage, rawUsage as countRawUsage } from "@attune/core";
+import { CORE_USAGE_WEIGHTS, eventWeight, panelUsage as countPanelUsage, rawUsage as countRawUsage } from "@attuneui/core";
 import { CATALOG, type PanelId } from "../../shared/catalog.ts";
 import type { SignalEvent, SignalType } from "../../shared/types.ts";
 
-/** Weight per event type: the core weights (CORE_USAGE_WEIGHTS in @attune/core) and the demo's own types. */
+/** Weight per event type: the core weights (CORE_USAGE_WEIGHTS in @attuneui/core) and the demo's own types. */
 export const USAGE_WEIGHTS: Record<SignalType, number> = {
   ...CORE_USAGE_WEIGHTS,
   links_dismiss: 0, // About the link cues, not the work in a panel.

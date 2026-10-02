@@ -8,7 +8,7 @@ import { useShallow } from "zustand/react/shallow";
 import { TEAM, type TeamMember } from "../../../shared/fixtures.ts";
 import { useEngine } from "../../engine/store.ts";
 import { initials, taskDueText } from "../format.ts";
-import { useNow } from "@attune/react";
+import { useNow } from "@attuneui/react";
 import { useItemProps } from "../linking.tsx";
 import {
   Button,

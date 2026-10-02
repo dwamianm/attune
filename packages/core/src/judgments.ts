@@ -1,6 +1,6 @@
 /**
  * The typed answers the layout code reads, the same whichever model or
- * fallback produced them. The model layer (@attune/jev) builds them from the
+ * fallback produced them. The model layer (@attuneui/jev) builds them from the
  * model's answers; an app's fallback (the demo's heuristic) builds them from
  * plain rules.
  */

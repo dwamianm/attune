@@ -1,7 +1,7 @@
 /**
  * Which of the demo's events ask Jev for a new read. The timing (debounce,
  * max wait, one request in flight, commands first) is AdaptScheduler in
- * @attune/core; this file only decides what counts as a trigger.
+ * @attuneui/core; this file only decides what counts as a trigger.
  */
 import type { SignalType } from "../../shared/types.ts";
 

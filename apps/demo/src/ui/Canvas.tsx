@@ -1,12 +1,12 @@
 /**
- * The single-screen canvas: the library's AdaptiveCanvas (@attune/react)
+ * The single-screen canvas: the library's AdaptiveCanvas (@attuneui/react)
  * with the demo's cards (PanelFrame), its caption, the anchor note, and the
  * link lines. There is no routing: changing "pages" is just the plan changing.
  *
  * The library canvas puts every card in its cell when the plan is packed for
  * the canvas's column count (plan.grid), so the panel the user just worked
  * in (the anchor) stays exactly where it was while the rest moves around it,
- * in the staged order from @attune/core's choreography; without a grid the
+ * in the staged order from @attuneui/core's choreography; without a grid the
  * cards fall back to the dense flow. It also keeps keyboard focus through a
  * re-plan, holds the anchor still on screen, keeps a docked card's slot
  * while the pointer stays, follows a panel a pin or "Make bigger" sent to
@@ -26,8 +26,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { LAYOUT_MODE_DEFS, type PanelId } from "../../shared/catalog.ts";
 import type { LayoutPlan } from "../../shared/types.ts";
 import { fadeQuietOn } from "../engine/focusAids.ts";
-import { shownQuiet, STAGE_ENTER } from "@attune/core";
-import { AdaptiveCanvas, useCanvasColumns } from "@attune/react";
+import { shownQuiet, STAGE_ENTER } from "@attuneui/core";
+import { AdaptiveCanvas, useCanvasColumns } from "@attuneui/react";
 import { useEngine } from "../engine/store.ts";
 import { AnchorNote } from "./AnchorNote.tsx";
 import { BackTo } from "./BackTo.tsx";

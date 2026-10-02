@@ -2,7 +2,7 @@
  * The help desk engine, headless: the library loop with the playground's
  * catalog, words, and links, against a fake server.
  */
-import { neutralJudgments, type AdaptiveRequest, type LayoutMode } from "@attune/core";
+import { neutralJudgments, type AdaptiveRequest, type LayoutMode } from "@attuneui/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CATALOG, type ActionId, type GoalId } from "./catalog.ts";
 import { createDeskStore, type Judgments } from "./engine.ts";

@@ -12,7 +12,7 @@ import { CLIENT_NAMES, INVOICES, PROJECTS, type Invoice, type Message, type Proj
 import type { ChoiceJudgment, CommandJudgments, Decision, InvoiceStatusArg, Suggestion } from "../../shared/types.ts";
 import type { CommandOutcome, PanelViewState } from "./contract.ts";
 import { makeSuggestion, type PolicyLiveData } from "./policy.ts";
-import { humanizeId, p2 } from "@attune/core";
+import { humanizeId, p2 } from "@attuneui/core";
 
 /** Panel confidence needed to act on a command. */
 export const COMMAND_APPLY_AT = 0.6;

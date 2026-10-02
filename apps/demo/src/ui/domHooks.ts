@@ -7,9 +7,9 @@
 import type { PanelId } from "../../shared/catalog.ts";
 import type { ItemKind } from "../../shared/types.ts";
 
-/** On the canvas grid element (the one with id "canvas"), set by AdaptiveCanvas (@attune/react). No value. The link-line overlay is positioned against it. */
+/** On the canvas grid element (the one with id "canvas"), set by AdaptiveCanvas (@attuneui/react). No value. The link-line overlay is positioned against it. */
 export const CANVAS_ATTR = "data-canvas";
-/** On each card, set by PanelCard (@attune/react), which PanelFrame draws around. Value: its PanelId. */
+/** On each card, set by PanelCard (@attuneui/react), which PanelFrame draws around. Value: its PanelId. */
 export const PANEL_ATTR = "data-panel";
 /** On each card's header element. Value: its PanelId. Link lines end here. */
 export const PANEL_HEADER_ATTR = "data-panel-header";
@@ -23,7 +23,7 @@ export const ITEM_ID_ATTR = "data-item-id";
 export const ITEM_KIND_ATTR = "data-item-kind";
 /** On each dock icon's wrapper. Value: its PanelId. A card leaving the canvas flies to this element. */
 export const DOCK_ID_ATTR = "data-dock-id";
-/** On the anchor's card while its anchor is live, set by PanelCard (@attune/react). Value: "true". */
+/** On the anchor's card while its anchor is live, set by PanelCard (@attuneui/react). Value: "true". */
 export const ANCHOR_ATTR = "data-anchor";
 /** Set by the UI on a tinted row: LinkRole "anchor" for the clicked record, "linked" for records related to it. */
 export const LINK_ATTR = "data-link";
@@ -50,9 +50,9 @@ export const LINKS_BAR_ATTR = "data-links-bar";
 /** On the command bar's wrapper. No value. Escape there is the command bar's, not the links'. */
 export const COMMAND_BAR_ATTR = "data-command-bar";
 
-/** On a quiet card (focus aid 1), set by PanelCard (@attune/react): "faded" while it shows at quiet strength, "lit" while hover or focus brings it to full strength. */
+/** On a quiet card (focus aid 1), set by PanelCard (@attuneui/react): "faded" while it shows at quiet strength, "lit" while hover or focus brings it to full strength. */
 export const QUIET_ATTR = "data-quiet";
-/** On a card for FRONT_RING_MS after a pin or "Make bigger" sent it to the front, while its ring shows, set by AdaptiveCanvas (@attune/react). No value. */
+/** On a card for FRONT_RING_MS after a pin or "Make bigger" sent it to the front, while its ring shows, set by AdaptiveCanvas (@attuneui/react). No value. */
 export const FRONT_RING_ATTR = "data-front-ring";
 
 export type LinkRole = "anchor" | "linked";

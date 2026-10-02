@@ -124,14 +124,14 @@ up the client's records next to the meeting.
 
 ```
 UI signals            clicks, searches, filters, pointer rests, shortcuts, commands
-  -> event log        src/engine/store.ts (track; the loop is createAdaptiveEngine in @attune/core)
-  -> snapshot         src/engine/snapshot.ts (rules in @attune/core): recent activity and behavior facts, in words
-  -> one Jev request  server/questions.ts (core questions from @attune/jev): small state, 16 questions, plus 2 with record candidates, 1 with the working goal, 1 with task candidates, 2 with a clicked record, and 5 with a command
-  -> judgments        server/normalize.ts (core readers from @attune/jev): typed Choice, Score, and Noul answers
-  -> policy           src/engine/policy.ts (general rules in @attune/core): weights, thresholds, hysteresis
+  -> event log        src/engine/store.ts (track; the loop is createAdaptiveEngine in @attuneui/core)
+  -> snapshot         src/engine/snapshot.ts (rules in @attuneui/core): recent activity and behavior facts, in words
+  -> one Jev request  server/questions.ts (core questions from @attuneui/jev): small state, 16 questions, plus 2 with record candidates, 1 with the working goal, 1 with task candidates, 2 with a clicked record, and 5 with a command
+  -> judgments        server/normalize.ts (core readers from @attuneui/jev): typed Choice, Score, and Noul answers
+  -> policy           src/engine/policy.ts (general rules in @attuneui/core): weights, thresholds, hysteresis
   -> layout plan      mode, ordered placements with sizes, dock, suggestions, help
-  -> place step       @attune/core packGrid: explicit grid cells, the clicked panel held still
-  -> animated canvas  src/ui/Canvas.tsx and PanelFrame.tsx (AdaptiveCanvas and PanelCard in @attune/react: staged motion)
+  -> place step       @attuneui/core packGrid: explicit grid cells, the clicked panel held still
+  -> animated canvas  src/ui/Canvas.tsx and PanelFrame.tsx (AdaptiveCanvas and PanelCard in @attuneui/react: staged motion)
 ```
 
 1. **Signals.** Panels report what the user does through `track()`. Every event
@@ -159,7 +159,7 @@ UI signals            clicks, searches, filters, pointer rests, shortcuts, comma
    is set; the command-bar line for that same command is not repeated as
    `latest_activity`) and asks every question in one `systemOne` call, so they
    run in parallel. Typical latency is about 150 to 350 ms. adapt() gives Jev
-   4.5 s in total, retry included (`askJev` in `@attune/jev`), and a server
+   4.5 s in total, retry included (`askJev` in `@attuneui/jev`), and a server
    `Retry-After` longer than 300 ms falls back to the short backoff
    (`createRealtimeJevClient`), so the heuristic answer always arrives
    inside the browser's 6 s timeout.
@@ -223,7 +223,7 @@ record in words and its linked records); the clicked record lives in their
 instructions, never in the state.
 The core questions (`goal`, `rel_<panel>`, `struggling`, `layout`,
 `expertise`, `next_action`, `cmd_panel`, and `cmd_action`) and the state are
-built by `@attune/jev` (`packages/jev/src/questions.ts`) from the demo's
+built by `@attuneui/jev` (`packages/jev/src/questions.ts`) from the demo's
 catalog; each goal's `notFor` and each panel's `commandExamples` live in
 `shared/catalog.ts`. The demo's own questions are in `server/questions.ts`.
 The wording was tuned against live Jev; the comments in both files explain
@@ -249,7 +249,7 @@ handle first when the Noul is at 0.6 or more.
 All thresholds are named constants at the top of each file, so they can be read
 and tuned in one place.
 
-`createPolicy` in `@attune/core` (`packages/core/src/createPolicy.ts`, and
+`createPolicy` in `@attuneui/core` (`packages/core/src/createPolicy.ts`, and
 the blend, mode, density, help, and in-use rules in `policy.ts` there),
 bound to the demo in `src/engine/policy.ts`:
 
@@ -333,10 +333,10 @@ bound to the demo in `src/engine/policy.ts`:
 Other thresholds: `src/engine/command.ts` (apply a command at panel confidence
 0.6, ask at 0.35, set a filter at 0.55, suggest its action at 0.55, lower than
 the 0.7 for passive steps because the user typed the request),
-`AdaptScheduler` in `@attune/core` (debounce and gaps), the snapshot rules in
-`@attune/core` (`packages/core/src/snapshot.ts`: what counts as a burst, a
+`AdaptScheduler` in `@attuneui/core` (debounce and gaps), the snapshot rules in
+`@attuneui/core` (`packages/core/src/snapshot.ts`: what counts as a burst, a
 quick dismissal, a reopened record, idle), and
-`src/engine/usage.ts` (what each event counts; `panelUsage` in `@attune/core`
+`src/engine/usage.ts` (what each event counts; `panelUsage` in `@attuneui/core`
 fades recent use with a 90 s half-life). Pointer rests
 are timed from the first real pointer movement in a card and capped at 15 s, so
 a card that slides under a resting pointer does not log interest.
@@ -362,7 +362,7 @@ ownership, and constants: [docs/anchored-relayout.md](docs/anchored-relayout.md)
   close a hole or to gather linked panels (below); every card has an
   explicit cell, so that cannot push the anchor. On one column the canvas is
   a list, so the anchor may grow there and push the cards after it down
-  (they move with the growth). `packGrid` in `@attune/core` packs explicit
+  (they move with the growth). `packGrid` in `@attuneui/core` packs explicit
   cells (a column counts as 3 row tracks when it looks for the free spot
   nearest the anchor).
 - **Gathered by next step** ("Arrange linked panels by next step", on by
@@ -571,7 +571,7 @@ rules, and constants: [docs/predictive-flow.md](docs/predictive-flow.md).
 The meeting prep card, the Done card or Up next, and the suggested next
 steps share one row of a fixed height, so it never pushes the canvas (or the
 panel just clicked) down. When they do not all fit
-(`fitRow` in `@attune/core`, with the card order from `src/ui/assistFit.ts`,
+(`fitRow` in `@attuneui/core`, with the card order from `src/ui/assistFit.ts`,
 measured with a ResizeObserver in `src/ui/AssistRow.tsx`):
 
 - **Priority.** A meeting starting soon comes first, then the Done card (or
@@ -888,13 +888,13 @@ From the library (`packages/`): the catalog check (`CATALOG` in
 `shared/catalog.ts` goes through `defineCatalog`), the layout modes, the
 judgment and snapshot types, the grid packer, the request scheduler, recent
 use, the quiet rule, the relayout timing, the row fit under the command bar,
-and the plain-word helpers (`@attune/core`); the core Jev questions, the
+and the plain-word helpers (`@attuneui/core`); the core Jev questions, the
 answer readers, the real-time client, and the round with a budget and the
-heuristic as its fallback (`@attune/jev`). The layout policy is
-`createPolicy` and the place step `placePlan` (`@attune/core`), bound to the
+heuristic as its fallback (`@attuneui/jev`). The layout policy is
+`createPolicy` and the place step `placePlan` (`@attuneui/core`), bound to the
 demo in `src/engine/policy.ts` and `src/engine/store.ts`. The demo's `src/engine/usage.ts`, `src/engine/quiet.ts`,
 and `src/ui/choreography.ts` bind them to its catalog and events; the generic React hooks
-(`@attune/react`); the request guard and rate limiter (`@attune/server`).
+(`@attuneui/react`); the request guard and rate limiter (`@attuneui/server`).
 
 ## Known limits
 

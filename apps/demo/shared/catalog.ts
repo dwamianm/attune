@@ -7,7 +7,7 @@
  * so the two sides can never disagree about what an id means.
  *
  * CATALOG at the end is the same vocabulary as one value, checked by
- * defineCatalog from @attune/core when this module loads. It is what the
+ * defineCatalog from @attuneui/core when this module loads. It is what the
  * library reads as library modules move out of this app
  * (docs/library-roadmap.md at the repo root). The layout modes belong to the
  * library and are re-exported here.
@@ -17,9 +17,9 @@
  * "literal reading" note in the TypeSafe docs).
  */
 
-import { defineCatalog, type ActionDef as LibActionDef, type Catalog, type GoalDef, type PanelDef as LibPanelDef } from "@attune/core";
+import { defineCatalog, type ActionDef as LibActionDef, type Catalog, type GoalDef, type PanelDef as LibPanelDef } from "@attuneui/core";
 
-export { LAYOUT_MODE_DEFS, LAYOUT_MODES, type LayoutMode } from "@attune/core";
+export { LAYOUT_MODE_DEFS, LAYOUT_MODES, type LayoutMode } from "@attuneui/core";
 
 export const PANEL_IDS = [
   "inbox",

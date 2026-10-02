@@ -3,13 +3,13 @@
  *
  * The rules (membership, docking with its band, order with hysteresis,
  * sizes, anchors and links, quiet panels, the decisions in words) are
- * createPolicy in @attune/core. This file binds them to the demo: its
+ * createPolicy in @attuneui/core. This file binds them to the demo: its
  * catalog, its recent use, its suggestions with their record arguments (an
  * invoice, a message, a project), its link words, its Guide as the help
  * panel, its habit words (focus aid 3), and the engine notes that do not
  * count toward density. Pure: no DOM, no store, no clock except `input.now`.
  */
-import * as Lib from "@attune/core";
+import * as Lib from "@attuneui/core";
 import {
   createPolicy,
   lowerFirst,
@@ -20,7 +20,7 @@ import {
   SUGGEST_PRIMARY_AT,
   SUGGEST_SUBTLE_AT,
   type PlanEdit as LibPlanEdit,
-} from "@attune/core";
+} from "@attuneui/core";
 import { ACTIONS, CATALOG, GOALS, type ActionId, type GoalId, type PanelId } from "../../shared/catalog.ts";
 import { CLIENTS, INVOICES, MESSAGES, PROJECTS, oldestOverdueInvoice, type Invoice, type Message, type Project } from "../../shared/fixtures.ts";
 import type { ChoiceJudgment, ItemKind, Judgments, LayoutPlan, SignalEvent, Suggestion } from "../../shared/types.ts";
@@ -32,7 +32,7 @@ import { panelUsage } from "./usage.ts";
 // ---------------------------------------------------------------------------
 // Suggestion thresholds. The layout thresholds, and the next-step
 // thresholds (SUGGEST_PRIMARY_AT, SUGGEST_SUBTLE_AT, RUNNER_UP_MIN_P), are
-// in @attune/core.
+// in @attuneui/core.
 // ---------------------------------------------------------------------------
 
 /** Target-client confidence needed to fill a suggestion's client. */
@@ -68,7 +68,7 @@ export interface PolicyLiveData {
 // Scoring
 // ---------------------------------------------------------------------------
 
-/** A panel's priority and its parts (PanelScore in @attune/core), for the demo's panels and goals. */
+/** A panel's priority and its parts (PanelScore in @attuneui/core), for the demo's panels and goals. */
 export type PanelScore = Lib.PanelScore<PanelId, GoalId>;
 
 /** The habit weight: the slider's value, else HABIT_WEIGHT. Not part of the blend's total (focus aid 3). */
@@ -76,7 +76,7 @@ export function habitWeight(weights: PolicyInput["weights"]): number {
   return weights.habit === undefined ? HABIT_WEIGHT : clean(weights.habit);
 }
 
-/** scorePanels in @attune/core, with the demo's catalog, its recent use, and its habit weight (focus aid 3). */
+/** scorePanels in @attuneui/core, with the demo's catalog, its recent use, and its habit weight (focus aid 3). */
 export function scorePanels(input: Pick<PolicyInput, "judgments" | "events" | "now" | "weights" | "pinned" | "habit">): Record<PanelId, PanelScore> {
   return Lib.scorePanels(CATALOG, {
     judgments: input.judgments,
@@ -386,7 +386,7 @@ function clean(n: number | undefined): number {
 // The policy, bound to the demo
 // ---------------------------------------------------------------------------
 
-/** A manual edit to the plan (PlanEdit in @attune/core), for the demo's panels. */
+/** A manual edit to the plan (PlanEdit in @attuneui/core), for the demo's panels. */
 export type PlanEdit = LibPlanEdit<PanelId>;
 
 /** The demo's policy (createPolicy), for the store. */

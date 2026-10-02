@@ -1,12 +1,12 @@
 /**
  * The playground's whole UI: a header, the command bar, the suggestions and
  * the change line, the canvas, and the dock. The canvas, the cards' staged
- * motion, the dock, and the change line are @attune/react's (AdaptiveCanvas,
+ * motion, the dock, and the change line are @attuneui/react's (AdaptiveCanvas,
  * Dock, ChangeLine), wired to the store with useStoreCanvas; the app draws
  * only each card's header and panel.
  */
-import type { PanelPlacement } from "@attune/core";
-import { AdaptiveCanvas, ChangeLine, Dock, useAdaptive, useStoreCanvas } from "@attune/react";
+import type { PanelPlacement } from "@attuneui/core";
+import { AdaptiveCanvas, ChangeLine, Dock, useAdaptive, useStoreCanvas } from "@attuneui/react";
 import { useMemo, useState, type ReactNode } from "react";
 import { CATALOG, type PanelId, type RecordKind } from "./catalog.ts";
 import { TICKETS, type Ticket } from "./data.ts";

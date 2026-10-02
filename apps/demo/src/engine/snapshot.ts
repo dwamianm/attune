@@ -1,7 +1,7 @@
 /**
  * The demo's part of the snapshot Jev reads. The rules (the observations,
  * the thresholds, collapsing repeats, the focus fallback) and the sentences
- * for the core event types are in @attune/core (snapshot.ts). This file adds
+ * for the core event types are in @attuneui/core (snapshot.ts). This file adds
  * the demo's words: its record kinds, its actions in the past tense, the
  * sentences for its own event types (Up next, Back to, the focus aids, the
  * link cues), what its focused panel shows from its view state, and how to
@@ -25,7 +25,7 @@ import {
   viaSuffix,
   type EventWords,
   type FocusDetails,
-} from "@attune/core";
+} from "@attuneui/core";
 import { PANELS, type ActionId, type PanelId } from "../../shared/catalog.ts";
 import { CLIENTS, INVOICES, MESSAGES, PROJECTS } from "../../shared/fixtures.ts";
 import type { ItemKind, SignalDetail, SignalEvent, SignalType, TrackInput } from "../../shared/types.ts";
@@ -180,7 +180,7 @@ const OBSERVATIONS = { profile: SIGNAL_PROFILE, words: WORDS, helpPanel: "help" 
 
 /**
  * Code-derived behavior facts as short sentences, included only when true
- * (deriveObservations in @attune/core), with the demo's Guide as its help panel.
+ * (deriveObservations in @attuneui/core), with the demo's Guide as its help panel.
  */
 export const deriveObservations: DeriveObservations = (events, now) => coreDeriveObservations(events, now, OBSERVATIONS);
 
