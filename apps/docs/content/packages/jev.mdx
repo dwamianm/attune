@@ -1,0 +1,53 @@
+---
+title: "@attuneui/jev"
+---
+
+# @attuneui/jev
+
+The model layer, for the server. It builds the core questions from your
+catalog, sends one round to Jev (TypeSafe's System One), and turns the
+answers into the typed judgments `@attuneui/core` reads.
+
+```sh
+npm install @attuneui/jev @attuneui/core @typesafe-ai/sdk
+```
+
+`@typesafe-ai/sdk` is a peer dependency, because your server creates the
+client.
+
+## One round
+
+| Export | What it does |
+| --- | --- |
+| `buildRound(catalog, { app, snapshot, command })` | The state and every core question for one round, the command questions too when the user typed one. |
+| `readRound(answers, questions, catalog)` | The judgments from the answers. Throws a `JevAnswerError` on anything that does not fit the questions. |
+| `askJev(input)` | Sends the round with a total time budget and always answers: on a timeout, an error, an answer that does not fit, or no key, it returns your fallback and logs one line. |
+| `createRealtimeJevClient({ apiKey, model })` | A client tuned for a real-time UI: a 4 s attempt timeout and one quick retry. |
+| `describeJevError(err)` | A failure in one short sentence, for the log. |
+
+`askJev` takes the client (or `null` without a key), the state and
+questions from `buildRound`, a `read` function, a `fallback`
+(`{ name, answer }`), the `budgetMs`, a `logTag`, and an optional `signal`
+to stop when the browser disconnects. Its answer has the judgments, their
+source (`"jev"` or your fallback's name), and the model and timing.
+
+## The questions
+
+The core questions are the same for every app, built from the catalog:
+
+| Id | Kind | Asks |
+| --- | --- | --- |
+| `goal` | Choice | What the user is trying to do, from your goals |
+| `rel_<panel>` | Score | How useful each panel is right now |
+| `struggling` | Probability | Whether the user is having trouble |
+| `layout` | Choice | Focus, compare, or overview |
+| `expertise` | Score | How familiar the user is: new, comfortable, or expert |
+| `next_action` | Choice | The likely next step, from your actions |
+| `cmd_panel`, `cmd_action` | Choice | With a command: which panel and which action it means |
+
+To add your own questions, build them next to these with
+`buildCoreQuestions` and `buildCoreState`, and read them with the readers
+(`readChoice`, `readScore`, `readNoul`) next to `readCoreJudgments`. The
+studio demo's server does this.
+
+Never call the model from the browser: the key must stay on your server.

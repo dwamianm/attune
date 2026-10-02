@@ -1,0 +1,87 @@
+---
+title: The model server
+---
+
+import { Callout } from "nextra/components";
+
+# The model server
+
+The model key must never reach the browser. The browser sends its request
+to your server; your server checks it, asks the model, and always answers.
+
+## The route
+
+```ts
+app.post("/api/adapt", async (c) => {
+  // 1. Only the app on this machine (or through your CDN) may spend the key.
+  const refused = checkRequest(
+    { host: c.req.header("host"), origin: c.req.header("origin"), contentType: c.req.header("content-type") },
+    { requireJson: true },
+  );
+  if (refused) return c.json({ error: refused.error }, refused.status);
+  if (!allow()) return c.json({ error: "Too many requests." }, 429);
+
+  // 2. Check and clip the body.
+  const parsed = parseAdaptRequest(await c.req.json());
+  if (!parsed.ok) return c.json({ error: parsed.error }, 400);
+  const { version, snapshot, command } = parsed.request;
+
+  // 3. One round, with a budget and a fallback.
+  const { state, questions } = buildRound(CATALOG, { app: APP_DESCRIPTION, snapshot, command: command ?? null });
+  const round = await askJev({
+    client,
+    state,
+    questions,
+    read: (answers) => readRound(answers, questions, CATALOG),
+    fallback: { name: "fallback", answer: () => neutralJudgments(CATALOG, command ? { command } : {}) },
+    budgetMs: 4_500,
+    signal: c.req.raw.signal,
+    logTag: `[adapt] v${version}`,
+  });
+  return c.json({ version, ...round });
+});
+```
+
+Also add a `GET /api/health` that says whether a key is set
+(`{ ok: true, jev: client !== null }`). The store can watch it
+(`watchHealth`) and show "offline" in the header.
+
+## The app description
+
+`APP_DESCRIPTION` is one or two sentences the model reads every round,
+for example "A help desk for a small software company. Its panels show
+support tickets, customers, help articles, and macros (saved replies)."
+
+## The budget and the fallback
+
+`budgetMs` is the total time for the round, the retry included. Keep it
+below the browser's patience: 4.5 s in the playground. When the model is
+slow, fails, sends an answer that does not fit the questions, or there is
+no key, `askJev` answers with the fallback and logs one line.
+`neutralJudgments(catalog)` is a calm fallback: every panel supporting, no
+goal, no next step, so the layout stays as it is. With a command it also
+answers the command's panel when the command names one.
+
+<Callout type="warning">
+  The response's `source` says who answered: `"jev"` or your fallback's
+  name. The store shows "offline" for a no-key fallback and "error" only
+  for a real failure.
+</Callout>
+
+## Deployed
+
+Behind a CDN, pass `edge` to `checkRequest`: `{ secret, origin }`. The CDN
+adds the secret in the `x-origin-verify` header (`EDGE_SECRET_HEADER`),
+and the server refuses any request without it. The studio demo deploys
+this way on AWS Lambda behind CloudFront.
+
+## The key
+
+Read the key from the environment, never from the request:
+
+```ts
+const apiKey = process.env.JEV_API_KEY;
+const client = apiKey ? createRealtimeJevClient({ apiKey, model: "jev-latest" }) : null;
+```
+
+Keep it in a `.env` file that git ignores.

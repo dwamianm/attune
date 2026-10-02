@@ -1,0 +1,52 @@
+---
+title: Introduction
+---
+
+import { Cards } from "nextra/components";
+
+# Attune
+
+Attune is an adaptive UI library. Your app is a canvas of panels, and the
+canvas rearranges itself around what the user is doing: the panel they
+work in grows and holds still, the panels that help move next to it, and
+the ones that do not matter now get out of the way.
+
+Two parts share the work:
+
+- **A model judges.** After the user does something, a model (Jev, from
+  TypeSafe) reads a short description of the recent activity in words and
+  answers small questions: what is the user trying to do, how useful is
+  each panel right now, are they stuck, what is the likely next step.
+- **Code decides.** Every layout decision is code: the weights, the
+  thresholds, which panels show, their sizes, and where each card goes. The
+  model never places a panel, so the same answers always give the same
+  layout, and every change has a reason the user can read.
+
+## The calm relayout rules
+
+An interface that moves by itself is only useful if it never moves under
+the user's hands. Attune keeps these rules everywhere:
+
+- The panel the user just worked in does not move during a relayout. Its
+  top-left corner holds still, and the other cards move around it.
+- The card under the pointer waits before it moves or leaves, and nothing
+  slides under the pointer right after a manual edit.
+- Layout changes are a few seconds apart at least, and each change is
+  staged so the eye can follow it: the anchor grows first, leaving cards fly
+  into the dock, moved cards glide, and new cards arrive one at a time.
+- Every change has a reason on screen, and Undo puts the last layout back.
+
+## The packages
+
+| Package | What it does |
+| --- | --- |
+| [`@attuneui/core`](/packages/core) | The adaptive loop, the layout policy, the anchored grid, and the staged relayout timing. No DOM, no React, no network. |
+| [`@attuneui/react`](/packages/react) | The adaptive canvas for React, with staged motion, the dock, and the change line. |
+| [`@attuneui/jev`](/packages/jev) | The model layer: the core questions built from your catalog, and the readers that turn the answers into typed judgments. |
+| [`@attuneui/server`](/packages/server) | Helpers for the server that holds the model key: request checks and a rate limiter. |
+
+<Cards>
+  <Cards.Card title="Getting started" href="/getting-started" />
+  <Cards.Card title="How it works" href="/concepts/how-it-works" />
+  <Cards.Card title="Examples" href="/examples" />
+</Cards>

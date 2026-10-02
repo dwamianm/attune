@@ -1,0 +1,46 @@
+---
+title: Examples
+---
+
+# Examples
+
+Two apps in the repository use the library. Both run locally.
+
+## The help desk playground
+
+[`apps/playground`](https://github.com/dwamianm/attune/tree/main/apps/playground)
+is a small help desk with four panels (Tickets, Customers, Articles,
+Macros) and its own data and server. It is built only from the packages,
+in about 750 lines, and none of them is adaptive logic. Use it as the
+reference for a new app: the [Getting started](/getting-started) page
+follows its code.
+
+```sh
+pnpm install
+pnpm dev:playground
+```
+
+It opens on http://localhost:5174, with its API on port 8791. Without a
+model key it answers with the calm fallback, and the header says so.
+
+Things to try: open "Cannot reset my password" in Tickets. Tickets holds
+still, Customers and Articles get a "Linked to T-201" tag with the
+customer and the help article tinted, and "Reply to the ticket" is
+suggested. Then type "show me the saved replies" in the command bar:
+Macros becomes the main panel.
+
+## The studio demo
+
+[`apps/demo`](https://github.com/dwamianm/attune/tree/main/apps/demo) is
+the prototype the library came from: a studio app with ten panels
+(invoices, inbox, clients, projects, tasks, calendar, and more). It runs on
+the same loop and canvas, and adds its own features through the loop's
+hooks: link cues that stay until the user clears them, an Up next card,
+Back to chips, a Done card, learned habits, and meeting prep. See
+[Extend the loop](/guides/extend-the-loop).
+
+```sh
+pnpm dev
+```
+
+It opens on http://localhost:5173, with its API on port 8790.

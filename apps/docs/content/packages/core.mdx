@@ -1,0 +1,85 @@
+---
+title: "@attuneui/core"
+---
+
+# @attuneui/core
+
+The framework-free part of Attune: the adaptive loop and everything it
+decides. No DOM, no React, no network. It runs in a browser, on a server,
+and in tests.
+
+```sh
+npm install @attuneui/core
+```
+
+## The store
+
+| Export | What it does |
+| --- | --- |
+| `createAdaptiveStore(config)` | The adaptive loop in a small store of its own: `getState`, `setState`, `subscribe`, and the actions. |
+| `createAdaptiveEngine(config, host)` | The same loop on a host's `get` and `set`, for example a zustand store's initializer. |
+| `AdaptiveSpec` | Your app's types in one place: extend it and narrow `panel`, `goal`, `action`, `kind`, and others. |
+| `AdaptiveHooks` | The hooks where an app's own features join the loop. See [Extend the loop](/guides/extend-the-loop). |
+
+The state holds the event log, the plan on screen and the one before it
+(for undo), the last answer, a history of rounds, the status (`idle`,
+`thinking`, `offline`, `error`), the settings, the pins, the bigger and
+docked panels, the focused panel, the anchor, the pointer, the column
+count, the goal, the mode, and the last command's outcome.
+
+The actions:
+
+| Action | What it does |
+| --- | --- |
+| `track(input)` | Log a user signal. It may ask the model, after a short pause. |
+| `runCommand(text)` | Send command bar text, judged with the current activity in one request. |
+| `chooseCommandOption(panel)` | Apply the panel the user picked for an unclear command. |
+| `pin`, `unpin`, `maximize`, `restore`, `dismiss`, `open` | The user's manual edits. Each applies at once. |
+| `acceptSuggestion`, `dismissSuggestion` | Take or turn down a suggestion that is still offered. |
+| `setSettings`, `setWeights` | Change the settings or the priority blend. |
+| `undo(to?)` | Put the previous layout back. |
+| `reset()` | Clear the events and return to the starting layout. Pins and settings stay. |
+| `adaptNow()` | Ask the model now. |
+| `setPointer`, `setCanvasHold`, `setColumns`, `setFocused` | What the canvas reports. `useStoreCanvas` calls them for you. |
+| `dispose()` | Stop every timer and the request in flight. |
+
+## The catalog and the vocabulary
+
+| Export | What it does |
+| --- | --- |
+| `defineCatalog`, `Catalog` | Your panels, goals, actions, and goal-to-panel affinity, checked once. |
+| `UNCLEAR_GOAL`, `NO_ACTION`, `PANEL_UNCLEAR` | The fixed no-match ids. |
+| `LAYOUT_MODES`, `LAYOUT_MODE_DEFS` | The three layouts and their descriptions for the model. |
+| `CORE_SIGNAL_TYPES`, `signalProfile`, `SignalProfile` | The core signal types, and how your own types count. |
+
+## The snapshot and recent use
+
+| Export | What it does |
+| --- | --- |
+| `buildSnapshot`, `InteractionSnapshot` | The activity in words for the model. |
+| `describeCoreEvent`, `deriveObservations` | One event's sentence, and the behavior facts code measured. |
+| `panelUsage`, `eventWeight`, `CORE_USAGE_WEIGHTS` | Recent use per panel, with the core weights. |
+| `AdaptScheduler` | When to ask: debounce, a longest wait, one request in flight, commands first. |
+
+## The policy and the plan
+
+| Export | What it does |
+| --- | --- |
+| `createPolicy` | The whole policy round, bound to your catalog: `computePlan`, `defaultPlan`, `traditionalPlan`, and the plan edits. |
+| `scorePanels`, `pickMode`, `pickDensity`, `helpLevel` | The general rules the policy uses. |
+| `LayoutPlan`, `PanelPlacement`, `AnchorRef`, `PanelRelation`, `Decision` | The plan and its parts. |
+| `basicSuggestions`, `basicRelation` | Suggestions and link tags for an app with nothing of its own. |
+| `neutralJudgments` | The calm fallback answer: every panel supporting, no goal, no next step. |
+| `quietPanels`, `shownQuiet` | The quiet rule. |
+| `CoreJudgments`, `CoreCommandJudgments`, `ChoiceJudgment`, `ScoreJudgment` | The typed answers the layout code reads. |
+
+## The grid and the motion
+
+| Export | What it does |
+| --- | --- |
+| `placePlan` | The place step: explicit cells with the anchor held still, the pointer's card kept, the rounds counted. |
+| `packGrid`, `lockedPanels`, `summarizeChanges` | The anchored packer and what a round changed. |
+| `CELL_SPANS`, `spanOf`, `GRID_BREAKPOINTS`, `columnsForWidth` | Card spans per size, and 1, 2, or 4 columns by width. |
+| `roundCues`, `cueFor`, `STAGE_GROW`, `STAGE_EXIT`, `STAGE_MOVE`, `STAGE_ENTER` | Which card plays which stage of a round, and when. |
+| `noteText`, `linkAnnouncement` | The sentences for the anchor note and screen readers. |
+| `fitRow` | Fits a row of chips on one line: full, compact, or "+N". |

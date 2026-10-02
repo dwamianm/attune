@@ -31,6 +31,8 @@ apps/
                             server, eval, AWS deploy. See apps/demo/README.md.
   playground/ @attuneui/playground  A second app, a small help desk, built only from
                             the packages. See apps/playground/README.md.
+  docs/     @attuneui/docs    The documentation site (Nextra on Next.js): getting
+                            started, concepts, the packages, and guides.
 docs/
   library-roadmap.md        What moves into the library next, and what blocks it.
 ```
@@ -53,9 +55,11 @@ Root scripts:
 | --- | --- |
 | `pnpm dev` | Run the demo (API server and web app) |
 | `pnpm dev:playground` | Run the playground (API on 8791, web on 5174), next to the demo if you like |
+| `pnpm dev:docs` | Run the documentation site on http://localhost:5175 |
 | `pnpm test` | Every package's and app's unit tests in one vitest run |
 | `pnpm typecheck` | `tsc --noEmit` in every package and app |
-| `pnpm build` | Every package that has a build (today: the demo web app) |
+| `pnpm build` | Every package and app that has a build: the four packages, the demo and playground web apps, and the docs site |
+| `pnpm build:packages` | Only the four library packages |
 | `pnpm eval` | The demo's live Jev eval (needs the key) |
 | `pnpm deploy:aws` | Publish the demo to https://attuneui.com (see apps/demo/README.md) |
 

@@ -1,0 +1,89 @@
+---
+title: The calm relayout
+---
+
+# The calm relayout
+
+A layout that moves by itself must never move under the user's hands.
+These rules live in the store and the canvas, so every app gets them.
+
+## The anchor holds still
+
+The panel the user just worked in is the **anchor**: a record opened, a
+search, a filter, an action, a click into the panel, or a panel opened
+from the dock. In the next rounds its top-left cell holds still and the
+other cards are packed around it. Work from a suggestion or a command does
+not anchor; a command's panel goes to the front as the main panel instead.
+
+- More work in the same panel on the same record keeps the same anchor.
+- The anchor lets go after 20 s without work (`ANCHOR_IDLE_RELEASE_MS`),
+  so a later round may rebalance the canvas.
+- A button in one card can log work on another (a filter, an action). For
+  1 s after a press (`ANCHOR_PRESS_WINDOW_MS`), the pressed card is the
+  anchor, because that is where the user's eyes are.
+- While the anchor is live, the canvas keeps its rows and scrolls by any
+  shift of the anchor card, so nothing above it pushes it down.
+
+## The pointer's card waits
+
+The card under the pointer keeps its cell for up to 3 s after a round
+first wants to move it (`POINTER_MOVE_HOLD_MS`), and stays on the canvas
+up to 5 s after a round wants to dock it (`POINTER_LEAVE_HOLD_MS`). The
+cap keeps a resting mouse from freezing the canvas.
+
+## Manual edits apply at once, and nothing slides in
+
+A pin, unpin, dock, open, "Make bigger", or "Make smaller" applies at
+once and changes only that card. The policy catches up at its normal pace.
+With the pointer on the canvas, the other cards wait until it leaves, a
+real action happens, or 10 s pass (`MANUAL_EDIT_HOLD_MS`), so the next
+click lands on the card the user aimed at. A docked card leaves an empty
+slot for the same time.
+
+While keyboard focus moves through the canvas, automatic changes wait
+until it leaves, and focus stays on the element it was on when a change
+does land.
+
+## Changes are a few seconds apart
+
+Automatic layout changes are at least 2.5 s apart (the
+`minChangeIntervalMs` setting). A round that comes sooner waits, and
+applies from whatever judgments are newest then. A round that changes
+nothing visible applies quietly: fresh reasons, no change line, no motion.
+
+## Commands win, and stay
+
+A command applies at once and skips the waits: its panel becomes the main
+panel. Its promotion survives re-plans from the same answer for up to 45 s
+(`COMMAND_HOLD_MS`), or until a newer round arrives, so a pointer rest
+right after the command does not undo it. An unclear command keeps the
+layout: its stray words say nothing about the work.
+
+## Undo sticks
+
+Undo puts the previous layout back and holds it for 15 s
+(`UNDO_HOLD_MS`). The undone change does not come back while the
+judgments stay about the same, for up to 5 minutes (`UNDO_MEMORY_MS`).
+
+## The staged relayout
+
+Each round plays in stages, so the eye can follow it:
+
+| Stage | Starts | Lasts | What happens |
+| --- | --- | --- | --- |
+| Grow | 0 ms | 250 ms | The anchor takes its new size |
+| Exit | 150 ms | 250 ms | Leaving cards fly into their dock item |
+| Move | 250 ms | 350 ms | Moved cards glide to their new cells |
+| Enter | 450 ms | 300 ms | New cards arrive one at a time, 70 ms apart, from the anchor's side |
+
+`roundCues` in `@attuneui/core` gives each card its part; `AdaptiveCanvas`
+plays it. With reduced motion every change is a 150 ms fade.
+
+## Settings
+
+| Setting | Meaning |
+| --- | --- |
+| `adaptive` | Off: a fixed layout plus the user's own changes. Events are still logged. |
+| `frozen` | On: the model keeps judging, but nothing moves by itself. Manual edits still apply. |
+| `weights` | The priority blend. |
+| `minChangeIntervalMs` | The least time between two automatic changes. |

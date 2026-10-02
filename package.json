@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "pnpm --filter @attuneui/demo dev",
     "dev:playground": "pnpm --filter @attuneui/playground dev",
+    "dev:docs": "pnpm --filter @attuneui/docs dev",
     "build": "pnpm -r --if-present build",
     "build:packages": "pnpm -r --filter \"./packages/*\" build",
     "typecheck": "pnpm -r typecheck",
@@ -26,6 +27,10 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild"
-    ]
+    ],
+    "overrides": {
+      "nextra>zod": "4.1.12",
+      "nextra-theme-docs>zod": "4.1.12"
+    }
   }
 }
