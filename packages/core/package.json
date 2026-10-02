@@ -1,16 +1,45 @@
 {
-  "name": "@attune/core",
+  "name": "@attuneui/core",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
-  "description": "Framework-free parts of Attune: the anchored grid packer, the request scheduler, and plain-word helpers.",
+  "description": "The framework-free core of Attune, an adaptive UI library: the adaptive loop, the layout policy, the anchored grid that holds the clicked panel still, and the staged relayout timing.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dwamianm/attune.git",
+    "directory": "packages/core"
+  },
+  "bugs": "https://github.com/dwamianm/attune/issues",
+  "keywords": [
+    "attune",
+    "adaptive-ui",
+    "ai",
+    "layout"
+  ],
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts"
   },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
   "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepack": "node ../../scripts/build-package.mjs"
   },
   "devDependencies": {
     "typescript": "catalog:",

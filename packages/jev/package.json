@@ -1,19 +1,49 @@
 {
-  "name": "@attune/jev",
+  "name": "@attuneui/jev",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "The Jev question layer for Attune: the core questions built from an app's catalog, the readers that turn Jev's answers into typed judgments, and one round with a total budget and a fallback.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dwamianm/attune.git",
+    "directory": "packages/jev"
+  },
+  "bugs": "https://github.com/dwamianm/attune/issues",
+  "keywords": [
+    "attune",
+    "adaptive-ui",
+    "ai",
+    "layout"
+  ],
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts"
   },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx",
+    "!src/test-catalog.ts"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
   "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepack": "node ../../scripts/build-package.mjs"
   },
   "dependencies": {
-    "@attune/core": "workspace:*"
+    "@attuneui/core": "workspace:^"
   },
   "peerDependencies": {
     "@typesafe-ai/sdk": "0.6.0"

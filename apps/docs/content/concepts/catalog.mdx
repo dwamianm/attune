@@ -1,0 +1,88 @@
+---
+title: The catalog
+---
+
+# The catalog
+
+The catalog is the app's vocabulary: its panels, the goals a user can
+have, and the next steps the app can suggest. The model reads it, so it is
+written in plain, literal words. Pass it through `defineCatalog`, which
+checks it when the app starts.
+
+```ts
+import { defineCatalog } from "@attuneui/core";
+
+export const CATALOG = defineCatalog<PanelId, GoalId, ActionId>({
+  panelIds,
+  panels,
+  goalIds,
+  goals,
+  actionIds,
+  actions,
+  goalPanelAffinity,
+});
+```
+
+## Panels
+
+| Field | Meaning |
+| --- | --- |
+| `id` | The panel id. It may not be `"unclear"`. |
+| `title` | The name people see, also in the model's state. |
+| `description` | What the panel shows and what the user can do there. Sent to the model. |
+| `icon` | An icon name. Your UI maps it to an icon component. |
+| `defaultVisible` | Shown on first load, before there is any activity. |
+| `commandExamples` | Optional example commands this panel answers. Set on every panel or on none. |
+
+`panelIds` is the default order.
+
+## Goals
+
+Each goal has a `label` (for example "Answering tickets") and a
+`description` that the model reads. `notFor` is optional: what the goal is
+not, for goals the model confuses with another. Set it on every goal or on
+none. The goal ids must include `"unclear"` (`UNCLEAR_GOAL`), the answer
+when there is too little activity to tell.
+
+## Actions
+
+Each action has a short `label` (it may hold placeholders such as
+`{client}`, which your app fills in), a `description` the model reads,
+and the `panel` that performs it. The action ids must include `"none"`
+(`NO_ACTION`), with `panel: null`: the answer when there is no clear next
+step.
+
+## Goal-to-panel affinity
+
+`goalPanelAffinity` says how strongly each goal implies each panel, from 0
+to 1. It is a hand-written rule, not a model call: the policy blends it
+with the model's per-panel relevance, weighted by the model's goal
+probabilities. A panel left out counts as 0.
+
+```ts
+goalPanelAffinity: {
+  answer_tickets: { tickets: 1, macros: 0.6, articles: 0.5, customers: 0.3 },
+  research_issue: { articles: 1, tickets: 0.5 },
+  unclear: {},
+},
+```
+
+## The checks
+
+`defineCatalog` throws a `CatalogError` that lists every problem at once:
+an empty or repeated id, an id with no definition or a definition with no
+id, a missing `"unclear"` goal or `"none"` action, a panel named
+`"unclear"`, an action whose panel is not in the catalog, a goal with no
+affinity entry (use `{}` for none), an affinity outside 0 to 1, and an
+optional field set on some entries but not all.
+
+## Layout modes
+
+The three layouts are the library's, not the catalog's, because the
+policy treats each one differently:
+
+| Mode | When | Slots |
+| --- | --- | --- |
+| `focus` | Deep work on one thing | One main panel, a few small helpers |
+| `compare` | Moving between two related things | Two large panels side by side |
+| `overview` | Scanning or switching between many areas | Many medium panels |

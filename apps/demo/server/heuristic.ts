@@ -9,7 +9,7 @@
  * confidences are capped, so the client policy (which gates on confidence)
  * adapts gently instead of acting boldly on a guess.
  */
-import { PANEL_UNCLEAR } from "@attune/core";
+import { PANEL_UNCLEAR } from "@attuneui/core";
 import {
   ACTION_IDS,
   GOAL_IDS,

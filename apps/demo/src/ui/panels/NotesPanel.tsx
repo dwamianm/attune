@@ -7,7 +7,7 @@ import { ListPlus } from "lucide-react";
 import { useId } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useEngine } from "../../engine/store.ts";
-import { useThrottleGate } from "@attune/react";
+import { useThrottleGate } from "@attuneui/react";
 import { Button, Compact, type PanelProps } from "./common.tsx";
 
 const NOTE_SIGNAL_GAP_MS = 5000;

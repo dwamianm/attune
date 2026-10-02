@@ -21,7 +21,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { FOCUS_AID_IDS, FOCUS_AID_TEXT } from "../engine/focusAids.ts";
 import { useEngine } from "../engine/store.ts";
-import { useWindowKeydown } from "@attune/react";
+import { useWindowKeydown } from "@attuneui/react";
 
 export function FocusSettings() {
   const [open, setOpen] = useState(false);

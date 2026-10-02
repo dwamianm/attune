@@ -13,7 +13,7 @@ import { Link2, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { linkLabel, useEngine } from "../engine/store.ts";
 import { commandBarSelector, LINKS_BAR_ATTR } from "./domHooks.ts";
-import { isTextField, useWindowKeydown } from "@attune/react";
+import { isTextField, useWindowKeydown } from "@attuneui/react";
 import { useLinks } from "./linking.tsx";
 
 /** The bar's entry and exit, short so it reads as part of the caption rather than a new thing. */

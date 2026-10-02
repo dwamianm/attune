@@ -29,7 +29,7 @@ import { meetingPrepOn } from "../engine/focusAids.ts";
 import { startsInText } from "../engine/meetingPrep.ts";
 import { useEngine } from "../engine/store.ts";
 import type { AssistEntry } from "./AssistRow.tsx";
-import { useNow, useWindowKeydown } from "@attune/react";
+import { useNow, useWindowKeydown } from "@attuneui/react";
 import { flowKeyTaken, revealPanel } from "./UpNext.tsx";
 
 /** The countdown re-renders this often: the minute it shows is never more than a quarter minute late. */

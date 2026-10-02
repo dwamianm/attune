@@ -65,13 +65,13 @@ record that was clicked.
 | `src/engine/contract.ts` | contract | `EngineState.anchor`, `.pointer`, `.columns`, `.links`; `LinkSet`, `LinkLinesMode`, `EngineSettings.linkLines`; `setPointer`, `setColumns`, `clearLinks`, `removeLink`; `PolicyInput.anchor`, `.linked`, `.hold`, `.linkHold`; `PackItem`, `PackInput`, `PackResult` |
 | `shared/types.ts`, `src/engine/contract.ts` | contract (Make bigger) | `SignalType` `"panel_maximize"`, `"panel_restore"`; `PanelPlacement.bigger`; `EngineState.bigger`; `maximize`, `restore`; `PolicyInput.bigger`; `PackInput.userResized` |
 | `src/engine/contract.ts`, `src/engine/focusAids.ts` | contract (move to the front) | `FocusAidSettings.moveToFront`; `EngineState.front`, `.toFront`; `PolicyInput.front`; `moveToFrontOn`, `frontGroup` (docs/focus-aids.md) |
-| `packages/core/src/grid.ts` (was `src/engine/grid.ts`) | engine (`@attune/core`) | `packGrid`, `lockedPanels`, `summarizeChanges` (stubs today); `CELL_SPANS`, `GRID_BREAKPOINTS`, `spanOf`, `columnsForWidth`, `cellsOverlap`, `cellFits` (done) |
+| `packages/core/src/grid.ts` (was `src/engine/grid.ts`) | engine (`@attuneui/core`) | `packGrid`, `lockedPanels`, `summarizeChanges` (stubs today); `CELL_SPANS`, `GRID_BREAKPOINTS`, `spanOf`, `columnsForWidth`, `cellsOverlap`, `cellFits` (done) |
 | `src/engine/relations.ts` | engine | `findLinked`, `anchorLabel`, `relationFor` (stubs today); `linkWhy` (how a linked record relates, for the next step) |
 | `src/engine/linkFlow.ts` (new) | engine | the next step: the clicked record in words, the link candidates, the Next gate, the order of the linked panels, the step, and the follow-up |
-| `packages/core/src/createPolicy.ts` (was in `src/engine/policy.ts`) | engine (`@attune/core`) | anchored-round rules, link boost, relations on placements; the demo binds it in `src/engine/policy.ts` |
+| `packages/core/src/createPolicy.ts` (was in `src/engine/policy.ts`) | engine (`@attuneui/core`) | anchored-round rules, link boost, relations on placements; the demo binds it in `src/engine/policy.ts` |
 | `src/engine/store.ts` | engine | anchor lifecycle, link set lifecycle, pointer holds, the place step (pack, round, summary) |
 | `src/ui/domHooks.ts` | UI | attribute names and selectors (done) |
-| `packages/core/src/choreography.ts` (was `src/ui/choreography.ts`) | UI (`@attune/core`) | stage timing constants |
+| `packages/core/src/choreography.ts` (was `src/ui/choreography.ts`) | UI (`@attuneui/core`) | stage timing constants |
 | `Canvas`, `PanelFrame`, `LinkLines`, `LinksBar`, `Dock`, panels, `index.css` | UI | explicit cells, stages, tint, tags, note, lines, links bar, reporting pointer and columns |
 
 The UI reads only plan and state fields and never calls the packer or the
@@ -226,7 +226,7 @@ or "Make bigger" with "Move pinned and bigger panels to the front" on is the
 exception: the user just asked for the move, so it applies at once; only the
 policy's catch-up still waits for the pointer.
 
-## Grid packer (grid.ts, in @attune/core)
+## Grid packer (grid.ts, in @attuneui/core)
 
 `packGrid` is pure and deterministic. Spans come from `CELL_SPANS`. A
 previous cell is usable when it exists and fits the columns. "Free" means not
@@ -400,7 +400,7 @@ One choreography per `plan.round`. Roles come from `changeSummary`:
   canvas changes height: the row under the command bar (the prep card, Up
   next, and the suggestions) is one line of a fixed height whose cards
   collapse into pills and then into "+N" rather than wrap
-  (`fitRow` in `@attune/core`), the canvas caption is one line whose Back to chips
+  (`fitRow` in `@attuneui/core`), the canvas caption is one line whose Back to chips
   past the newest wait behind "+N", and a new help hint waits for the
   release. The canvas keeps a min height of the larger of the old and new
   rows until the round ends, so the page never shrinks and clamps the
@@ -639,7 +639,7 @@ once and moves nothing. The backfill is not part of the aid: it always runs.
 
 Since the monorepo split, the files named `choreography.ts`, `grid.ts`,
 `quiet.ts`, and `usage.ts` in the Where column are in `packages/core/src/`
-(`@attune/core`); the demo's `src/ui/choreography.ts`,
+(`@attuneui/core`); the demo's `src/ui/choreography.ts`,
 `src/engine/quiet.ts`, and `src/engine/usage.ts` bind them to its catalog.
 `RESIZE_USAGE_WEIGHT` stays in the demo's `src/engine/usage.ts`.
 

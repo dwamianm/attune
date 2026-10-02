@@ -27,17 +27,17 @@ import type {
   CoreJudgments,
   InteractionSnapshot,
   ScoreJudgment,
-} from "@attune/core";
+} from "@attuneui/core";
 import type { ActionId, GoalId, PanelId } from "./catalog.ts";
 
-export type { ChoiceJudgment, Density, GridCell, GridColumns, HelpLevel, InteractionSnapshot, PanelSize, ScoreJudgment } from "@attune/core";
+export type { ChoiceJudgment, Density, GridCell, GridColumns, HelpLevel, InteractionSnapshot, PanelSize, ScoreJudgment } from "@attuneui/core";
 
 // ---------------------------------------------------------------------------
 // Signals captured in the browser
 // ---------------------------------------------------------------------------
 
 /**
- * The core signal types (CoreSignalType in @attune/core: panel focus, open,
+ * The core signal types (CoreSignalType in @attuneui/core: panel focus, open,
  * dismiss, pin, unpin, dwell, maximize, restore, item open, search, filter,
  * action, command, shortcut, scroll, suggestion accept and dismiss, undo),
  * plus the demo's own.
@@ -95,7 +95,7 @@ export interface SignalEvent extends TrackInput {
 
 // ---------------------------------------------------------------------------
 // Request: what the client sends to the server. The snapshot shape
-// (InteractionSnapshot) comes from @attune/core.
+// (InteractionSnapshot) comes from @attuneui/core.
 // ---------------------------------------------------------------------------
 
 /** Longest command the server reads. The command bar caps input at this, and the server clips longer text. */
@@ -197,7 +197,7 @@ export interface AdaptRequest {
 
 // ---------------------------------------------------------------------------
 // Response: typed judgments from Jev (or the heuristic fallback). The core
-// judgments and the Choice and Score shapes come from @attune/core.
+// judgments and the Choice and Score shapes come from @attuneui/core.
 // ---------------------------------------------------------------------------
 
 export const INVOICE_STATUS_ARGS = ["overdue", "unpaid", "paid", "draft", "all", "not_mentioned"] as const;
@@ -321,7 +321,7 @@ export interface PrepResponse {
 
 // ---------------------------------------------------------------------------
 // Layout plan: what the client policy produces from judgments. The size and
-// cell types (PanelSize, GridCell, GridColumns) come from @attune/core.
+// cell types (PanelSize, GridCell, GridColumns) come from @attuneui/core.
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
@@ -329,28 +329,28 @@ export interface PrepResponse {
 // optional on the plan, so plans built before this feature stay valid.
 // ---------------------------------------------------------------------------
 
-/** The panel the user just worked in, and what the work was about (AnchorRef in @attune/core). */
+/** The panel the user just worked in, and what the work was about (AnchorRef in @attuneui/core). */
 export type AnchorRef = LibAnchorRef<PanelId, ItemKind>;
-/** One record in another panel that code joined to the anchor (RelatedRecord in @attune/core). */
+/** One record in another panel that code joined to the anchor (RelatedRecord in @attuneui/core). */
 export type RelatedRecord = LibRelatedRecord<ItemKind>;
-/** Why a panel is linked to the anchor (PanelRelation in @attune/core). */
+/** Why a panel is linked to the anchor (PanelRelation in @attuneui/core). */
 export type PanelRelation = LibPanelRelation<PanelId, ItemKind>;
 
 
 
-/** Explicit cells for every placement (PlanGrid in @attune/core). */
+/** Explicit cells for every placement (PlanGrid in @attuneui/core). */
 export type PlanGrid = LibPlanGrid<PanelId>;
 
 /**
  * What happened to each panel's cell versus the previous plan (ChangeSummary
- * in @attune/core, for this app's panel ids).
+ * in @attuneui/core, for this app's panel ids).
  */
 export type ChangeSummary = LibChangeSummary<PanelId>;
 
-/** One panel on the canvas (PanelPlacement in @attune/core). */
+/** One panel on the canvas (PanelPlacement in @attuneui/core). */
 export type PanelPlacement = LibPanelPlacement<PanelId, ItemKind>;
 
-/** A suggested next step: the core fields (CoreSuggestion in @attune/core) and the record it acts on. */
+/** A suggested next step: the core fields (CoreSuggestion in @attuneui/core) and the record it acts on. */
 export interface Suggestion extends CoreSuggestion<ActionId> {
   /** The exact record the action will act on, so the label and the action agree. */
   args: { client?: string; invoiceId?: string; messageId?: string; projectId?: string; taskId?: string };
@@ -382,13 +382,13 @@ export interface Suggestion extends CoreSuggestion<ActionId> {
   meetingNotes?: { eventId: string; heading: string };
 }
 
-/** One change the policy made or held back, in words (Decision in @attune/core), for the demo's panels. */
+/** One change the policy made or held back, in words (Decision in @attuneui/core), for the demo's panels. */
 export type Decision = LibDecision<PanelId>;
 
-/** The layout plan (LayoutPlan in @attune/core), for the demo's panels, suggestions, and record kinds. */
+/** The layout plan (LayoutPlan in @attuneui/core), for the demo's panels, suggestions, and record kinds. */
 export type LayoutPlan = LibLayoutPlan<PanelId, Suggestion, ItemKind>;
 
-/** The blend's weights (BlendWeights in @attune/core: relevance, usage, goal), plus the habit weight. */
+/** The blend's weights (BlendWeights in @attuneui/core: relevance, usage, goal), plus the habit weight. */
 export interface PolicyWeights extends BlendWeights {
   /**
    * Focus aid 3, "Learn my habits" (docs/focus-aids.md): weight on the

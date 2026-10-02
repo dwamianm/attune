@@ -1,84 +1,51 @@
 /**
- * Card chrome shared by every panel, and the place where most passive
- * signals are captured (focus, pointer dwell, list scroll).
+ * The demo's card: its look, header, link tag, "Why here?" popover, and
+ * body around the library card (PanelCard in @attuneui/react), which owns the
+ * motion and the hands: it glides to its new cell and size whenever the plan
+ * changes, plays its part of an anchored round (the anchor grows first, a
+ * leaving card flies into its dock icon, a moving card glides, a new card
+ * slides out from the anchor's side), fades while quiet and lights up on
+ * hover or focus, and reports focus, the pointer, and pointer rests.
  *
- * The card is the motion element: `layout` makes it glide to its new grid
- * slot and size whenever the plan changes. Header and body use
- * layout="position" so their contents are scale-corrected instead of being
- * stretched while the card grows or shrinks.
+ * Header and body use layout="position" so their contents are
+ * scale-corrected instead of being stretched while the card grows or
+ * shrinks. This file also captures list scrolls in the body.
  *
- * In an anchored round (docs/anchored-relayout.md) the card plays its part
- * of the round's choreography (its `cue`): the anchor grows first, a leaving
- * card flies into its dock icon, a moving card glides, a new card slides out
- * from the anchor's side. While the links show (they outlive the anchor
- * until the user clears them), a linked card shows a "Linked to ..." tag
- * with an x that removes that link, and its linked rows share the clicked
- * row's link tint. The linked card that holds the next step Jev read from the
- * clicked record ("Arrange linked panels by next step") says so instead, in a
- * stronger style: "Next: resend INV-1042".
+ * While the links show (they outlive the anchor until the user clears them),
+ * a linked card shows a "Linked to ..." tag with an x that removes that
+ * link, and its linked rows share the clicked row's link tint. The linked
+ * card that holds the next step Jev read from the clicked record ("Arrange
+ * linked panels by next step") says so instead, in a stronger style:
+ * "Next: resend INV-1042".
  *
  * "Make bigger" (the button beside the pin, or a double-click on the title
  * area) makes the card the hero size until the user makes it smaller or
  * docks it; the engine keeps its top edge and moves the cards in its way.
  * With "Move pinned and bigger panels to the front" on, a pin or "Make
  * bigger" sends the card to the first cell instead, and the canvas rings it
- * (`ring`) once it lands.
+ * once it lands.
  *
- * A quiet card (focus aid 1, docs/focus-aids.md) shows at QUIET_OPACITY and
- * a little desaturated, with a "Quiet" label; hover or keyboard focus inside
- * it brings full strength at once, with no layout change. Clicking into it
- * is the engine's business: it makes the panel normal again.
+ * A quiet card (focus aid 1, docs/focus-aids.md) shows faded with a "Quiet"
+ * label; hover or keyboard focus inside it brings full strength at once,
+ * with no layout change. Clicking into it is the engine's business: it makes
+ * the panel normal again.
  */
 import clsx from "clsx";
 import { ArrowDownToLine, CornerDownRight, Info, Link2, Maximize2, Minimize2, Pin, X } from "lucide-react";
-import { AnimatePresence, motion, type TargetAndTransition } from "motion/react";
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-  type Ref,
-} from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useShallow } from "zustand/react/shallow";
 import { PANELS, type PanelId } from "../../shared/catalog.ts";
-import type { GridCell, PanelPlacement, PanelRelation, PanelSize } from "../../shared/types.ts";
+import type { ItemKind, PanelPlacement, PanelRelation, PanelSize } from "../../shared/types.ts";
 import { moveToFrontOn } from "../engine/focusAids.ts";
-import {
-  type CardCue,
-  ENTER_OFFSET_PX,
-  ENTER_SCALE,
-  QUIET_FADE_MS,
-  QUIET_LIGHT_MS,
-  QUIET_OPACITY,
-  QUIET_SATURATE,
-  REDUCED_FADE_MS,
-  SIZE_RANK,
-  STAGE_EXIT,
-  STAGE_MOVE,
-  stageTransition,
-} from "@attune/core";
+import { REDUCED_FADE_MS, SIZE_RANK } from "@attuneui/core";
 import { useEngine } from "../engine/store.ts";
-import { ANCHOR_ATTR, dockIconSelector, FRONT_RING_ATTR, LINK_ATTR, LINK_NEXT_ATTR, LINK_REMOVE_ATTR, LINK_TAG_ATTR, PANEL_ATTR, PANEL_HEADER_ATTR, QUIET_ATTR } from "./domHooks.ts";
-import { useThrottleGate, useWindowKeydown } from "@attune/react";
+import { LINK_ATTR, LINK_NEXT_ATTR, LINK_REMOVE_ATTR, LINK_TAG_ATTR, PANEL_HEADER_ATTR } from "./domHooks.ts";
+import { CARD_CONTROL_ATTR, cardLayoutTransition, PanelCard, useCanvasEdit, useThrottleGate, useWindowKeydown, type PanelCardProps } from "@attuneui/react";
 import { panelIcon } from "./icons.ts";
-import { anchorItem, LinkContext, revealInPanel, useLinks, useLiveAnchor, type LinkLookup, type LinkMark } from "./linking.tsx";
+import { anchorItem, LinkContext, revealInPanel, useLinks, type LinkLookup, type LinkMark } from "./linking.tsx";
 
-const PANEL_SPRING = { type: "spring", stiffness: 380, damping: 34 } as const;
-
-const DWELL_MIN_MS = 1500;
-/**
- * Longest pointer rest reported. A card that slid under a resting pointer was
- * logged as "about 42 seconds" of interest; past 15 s the number says more
- * about a mouse left alone than about the panel.
- */
-const DWELL_MAX_MS = 15_000;
 const SCROLL_GAP_MS = 3000;
 /**
  * A scroll counts as the user's only this soon after they scrolled by hand
@@ -103,12 +70,10 @@ const OWN_SCROLL_MS = 300;
  * ours for this long.
  */
 const RESTORE_SCROLL_MS = 700;
-/** A card leaving with no dock icon to fly to drops this far as it fades. */
-const EXIT_DROP_PX = 12;
-/** Smallest scale a leaving card shrinks to on its way into the dock icon. */
-const EXIT_MIN_SCALE = 0.05;
 /** Space between a link tag and its x button (gap-0.5), counted when checking whether the whole tag fits. */
 const REMOVE_GAP_PX = 2;
+/** Marks a card's own controls (CARD_CONTROL_ATTR): using them is not work in the panel. */
+const CONTROL = { [CARD_CONTROL_ATTR]: "" };
 
 type FlashKind = "added" | "bigger" | "smaller" | "up" | "down";
 
@@ -121,9 +86,6 @@ const CHANGE_TEXT: Record<FlashKind, string> = {
   down: "Moved down",
 };
 
-/** Lets the canvas hold a card's slot for a moment after the user docks it (see Canvas). */
-export const CanvasEditContext = createContext<{ noteDismiss: (id: PanelId) => void } | null>(null);
-
 const SIZE_TEXT: Record<PanelSize, string> = {
   hero: "Main panel",
   large: "Wide",
@@ -131,98 +93,23 @@ const SIZE_TEXT: Record<PanelSize, string> = {
   compact: "Summary only",
 };
 
-/** What AnimatePresence passes a leaving card (its `custom`), read when the exit starts. */
-export interface ExitContext {
-  /** The round that removed the card is staged: fly into the dock icon. */
-  staged: boolean;
-  reduceMotion: boolean;
-}
+/** The note attached to a card (the anchor note, "Added Inbox for ..."), from the canvas (see Canvas). */
+export const CardNoteContext = createContext<(id: PanelId) => ReactNode>(() => null);
 
-/** An element's box on screen without any transform on it (offsets ignore transforms). */
-function untransformedRect(el: HTMLElement): { left: number; top: number; width: number; height: number } {
-  let left = 0;
-  let top = 0;
-  let node: HTMLElement | null = el;
-  while (node) {
-    const parent = node.offsetParent as HTMLElement | null;
-    if (!parent) {
-      const r = node.getBoundingClientRect();
-      left += r.left;
-      top += r.top;
-      break;
-    }
-    left += node.offsetLeft + parent.clientLeft;
-    top += node.offsetTop + parent.clientTop;
-    node = parent;
-  }
-  return { left, top, width: el.offsetWidth, height: el.offsetHeight };
-}
-
-/**
- * Where a leaving card goes. In a staged round it shrinks into its dock
- * icon, so the user sees where the panel went; the icon's final place is
- * read from layout offsets, because the dock itself may still be animating.
- */
-function exitTarget(id: PanelId, ctx: ExitContext | undefined): TargetAndTransition {
-  if (ctx?.reduceMotion) return { opacity: 0, transition: { duration: REDUCED_FADE_MS / 1000 } };
-  if (!ctx?.staged) return { opacity: 0, scale: 0.97, transition: { duration: 0.16 } };
-  const t = stageTransition(STAGE_EXIT);
-  const card = document.querySelector<HTMLElement>(`[${PANEL_ATTR}="${id}"]`);
-  const icon = document.querySelector<HTMLElement>(dockIconSelector(id));
-  const drop: TargetAndTransition = { opacity: 0, y: EXIT_DROP_PX, zIndex: 3, transition: t };
-  if (!card || !icon) return drop;
-  // Both boxes without transforms: motion may resolve this again mid-flight,
-  // and x/y are offsets from the card's own layout box.
-  const from = untransformedRect(card);
-  const to = untransformedRect(icon);
-  if (from.width === 0 || from.height === 0 || to.width === 0) return drop;
-  const scale = Math.max(EXIT_MIN_SCALE, Math.min(to.width / from.width, to.height / from.height));
-  return {
-    x: to.left + to.width / 2 - (from.left + from.width / 2),
-    y: to.top + to.height / 2 - (from.top + from.height / 2),
-    scale,
-    opacity: 0,
-    zIndex: 3,
-    // Visible for the flight, gone as it lands.
-    transition: { ...t, opacity: { ...t, delay: t.delay + t.duration / 2, duration: t.duration / 2 } },
-  };
-}
-
-interface PanelFrameProps {
-  placement: PanelPlacement;
-  reduceMotion: boolean;
-  children: ReactNode;
-  /** Forwarded so AnimatePresence mode="popLayout" can measure the card. */
-  ref?: Ref<HTMLElement>;
-  /** Explicit cell when the plan is packed for the canvas's column count; absent: the CSS dense flow. */
-  cell?: GridCell;
-  /** This card's part in the current round; absent when the round is not staged. */
-  cue?: CardCue;
-  /** The plan's round, so a reduced-motion fade restarts once per round. */
-  round: number;
-  /** The note attached to the anchor card ("Added Inbox for ..."). */
-  note?: ReactNode;
-  /** Shows as quiet now (focus aid 1): the plan marks it quiet and nothing since exempts it (shownQuiet in src/engine/quiet.ts). */
-  quiet?: boolean;
-  /** Rings the card: a pin or "Make bigger" just sent it to the front and it has landed (the canvas times it, FRONT_RING_MS). */
-  ring?: boolean;
-}
-
-export function PanelFrame({ placement, reduceMotion, children, ref, cell, cue, round, note, quiet = false, ring = false }: PanelFrameProps) {
+export function PanelFrame(props: PanelCardProps<PanelId, ItemKind>) {
+  const { placement, reduceMotion, children, cue, round, quiet = false, ring = false } = props;
   const { id, size, pinned } = placement;
   const title = PANELS[id].title;
   const Icon = panelIcon(id);
   const titleId = useId();
+  const note = useContext(CardNoteContext)(id);
 
-  const { focusedPanel, track, setFocused, pin, unpin, dismiss, setPointer, removeLink, bigger, maximize, restore, toFront } = useEngine(
+  const { track, pin, unpin, dismiss, removeLink, bigger, maximize, restore, toFront } = useEngine(
     useShallow((s) => ({
-      focusedPanel: s.focusedPanel,
       track: s.track,
-      setFocused: s.setFocused,
       pin: s.pin,
       unpin: s.unpin,
       dismiss: s.dismiss,
-      setPointer: s.setPointer,
       removeLink: s.removeLink,
       bigger: s.bigger.includes(id),
       maximize: s.maximize,
@@ -232,51 +119,19 @@ export function PanelFrame({ placement, reduceMotion, children, ref, cell, cue, 
   );
   const toggleBigger = (via: "pointer" | "keyboard") => (bigger ? restore(id, via) : maximize(id, via));
 
-  // The card element, shared with AnimatePresence's ref (popLayout measures it).
+  // The card element, shared with the library card's ref (AnimatePresence's popLayout measures it).
   const cardRef = useRef<HTMLElement | null>(null);
+  const outerRef = props.ref;
   const setCardRef = useCallback(
     (el: HTMLElement | null) => {
       cardRef.current = el;
-      if (typeof ref === "function") ref(el);
-      else if (ref) ref.current = el;
+      if (typeof outerRef === "function") outerRef(el);
+      else if (outerRef) outerRef.current = el;
     },
-    [ref],
+    [outerRef],
   );
 
-  // --- Focus: report only when the focused panel actually changes. -------
-  // A ref, not the store value, because pointerdown and focusin fire in the
-  // same gesture before React re-renders.
-  const lastFocused = useRef(focusedPanel);
-  useEffect(() => {
-    lastFocused.current = focusedPanel;
-  }, [focusedPanel]);
-
-  const markFocus = (via: "pointer" | "keyboard") => {
-    if (lastFocused.current === id) return;
-    lastFocused.current = id;
-    setFocused(id);
-    track({ type: "panel_focus", panel: id, detail: { via } });
-  };
-
-  const fromFrameControl = (target: EventTarget | null) =>
-    target instanceof Element && target.closest("[data-frame-control]") !== null;
-
-  // --- Pointer: the engine holds a card under the pointer still for a while. -
-  // A card that leaves the canvas under the pointer fires no pointerleave.
-  useEffect(
-    () => () => {
-      const p = useEngine.getState().pointer;
-      if (p.panel === id) setPointer({ panel: null, down: false });
-    },
-    [id, setPointer],
-  );
-
-  // --- Dwell: pointer resting on the card. ---------------------------------
-  // Timed from the first real pointer movement inside the card, not from
-  // pointerenter: a card that slides under a still pointer fires pointerenter
-  // too, and that is not interest.
-  const enteredAt = useRef<number | null>(null);
-  const canvasEdit = useContext(CanvasEditContext);
+  const canvasEdit = useCanvasEdit<PanelId>();
 
   // --- Scroll: at most one signal per panel every 3 s. --------------------
   // Native capture listener, because scroll does not bubble and every panel
@@ -323,10 +178,7 @@ export function PanelFrame({ placement, reduceMotion, children, ref, cell, cue, 
   }, [id, scrollGate, track]);
 
   // --- Link cue: the clicked record and the records linked to it. --------
-  // The anchor card sits above the cards moving around it while the anchor
-  // is live; the link cues follow the link set, which outlives the anchor.
-  const live = useLiveAnchor();
-  const isAnchor = live !== null && live.panel === id;
+  // The link cues follow the link set, which outlives the anchor.
   const links = useLinks();
   const isSource = links !== null && links.source.panel === id;
   const relation = links?.relations[id];
@@ -427,57 +279,23 @@ export function PanelFrame({ placement, reduceMotion, children, ref, cell, cue, 
     return () => clearTimeout(t);
   }, [flash]);
 
-  // --- Quiet (focus aid 1): full strength while the pointer or focus is in it. -
-  const [lit, setLit] = useState(false);
-  const faded = quiet && !lit;
-
   // --- "Why here?" popover. -----------------------------------------------
   const whyRef = useRef<HTMLButtonElement>(null);
   const [whyOpen, setWhyOpen] = useState(false);
   const closeWhy = useCallback(() => setWhyOpen(false), []);
 
-  const focused = focusedPanel === id;
+  const focused = props.focused;
   const linkedLook = relation !== undefined || isSource;
-
-  // --- Motion for this round. ----------------------------------------------
-  const entering = cue?.role === "entering";
-  const layoutTransition = reduceMotion ? { duration: 0 } : cue ? stageTransition(entering ? STAGE_MOVE : cue.stage) : PANEL_SPRING;
-  const offset = entering && cue?.from ? { x: -cue.from.x * ENTER_OFFSET_PX, y: -cue.from.y * ENTER_OFFSET_PX } : { x: 0, y: 0 };
-  const initial = reduceMotion ? { opacity: 0 } : entering ? { opacity: 0, scale: ENTER_SCALE, ...offset } : { opacity: 0, scale: 0.97 };
-  const baseTransition = reduceMotion
-    ? { duration: REDUCED_FADE_MS / 1000, layout: { duration: 0 } }
-    : entering && cue
-      ? { ...stageTransition(cue.stage), layout: layoutTransition }
-      : { ...PANEL_SPRING, opacity: { duration: 0.18 }, layout: layoutTransition };
-  // A quiet card fades slowly and lights up at once; only opacity and color change, never its size or place.
-  const quietTiming = { duration: (faded ? QUIET_FADE_MS : QUIET_LIGHT_MS) / 1000 };
-  const transition = quiet ? { ...baseTransition, opacity: quietTiming, filter: quietTiming } : baseTransition;
+  const layoutTransition = cardLayoutTransition(cue, reduceMotion);
   // Reduced motion: a card that changed cell fades in place (see .fl-fade-a in index.css).
   const fade = reduceMotion && cue?.role === "moved" ? (round % 2 === 0 ? "fl-fade-a" : "fl-fade-b") : undefined;
-  const variants = useMemo(() => ({ exit: (ctx: ExitContext | undefined) => exitTarget(id, ctx) }), [id]);
 
   return (
-    <motion.section
+    <PanelCard
+      {...props}
       ref={setCardRef}
-      aria-labelledby={titleId}
-      data-size={size}
-      {...{ [PANEL_ATTR]: id }}
-      {...(isAnchor ? { [ANCHOR_ATTR]: "true" } : {})}
-      {...(quiet ? { [QUIET_ATTR]: faded ? "faded" : "lit" } : {})}
-      {...(ring ? { [FRONT_RING_ATTR]: "" } : {})}
-      layout={!reduceMotion}
-      initial={initial}
-      animate={{ opacity: faded ? QUIET_OPACITY : 1, scale: 1, x: 0, y: 0, ...(quiet ? { filter: `saturate(${faded ? QUIET_SATURATE : 1})` } : {}) }}
-      variants={variants}
-      exit="exit"
-      transition={transition}
-      // Set inline so motion can correct the radius while the card scales.
-      // The anchor sits above the cards moving around it.
-      style={{
-        borderRadius: 14,
-        ...(isAnchor ? { zIndex: 2 } : {}),
-        ...(cell ? { gridColumn: `${cell.col + 1} / span ${cell.w}`, gridRow: `${cell.row + 1} / span ${cell.h}` } : {}),
-      }}
+      labelledBy={titleId}
+      radius={14}
       className={clsx(
         "fl-cell relative flex min-w-0 flex-col overflow-hidden border bg-surface shadow-card transition-[border-color,box-shadow] duration-500",
         fade,
@@ -494,49 +312,8 @@ export function PanelFrame({ placement, reduceMotion, children, ref, cell, cue, 
                 ? "border-line-strong"
                 : "border-line",
       )}
-      onPointerEnter={(e) => {
-        enteredAt.current = null;
-        if (e.pointerType !== "touch") {
-          setPointer({ panel: id, down: e.buttons > 0 });
-          setLit(true);
-        }
-      }}
-      onPointerMove={(e) => {
-        // Layout changes under a still pointer produce moves with no movement; skip them.
-        if (e.pointerType === "touch" || enteredAt.current !== null || (e.movementX === 0 && e.movementY === 0)) return;
-        enteredAt.current = Date.now();
-      }}
-      onPointerLeave={(e) => {
-        if (e.pointerType !== "touch") setPointer({ panel: null, down: false });
-        // Keyboard focus inside keeps it lit.
-        if (!cardRef.current?.contains(document.activeElement)) setLit(false);
-        const start = enteredAt.current;
-        enteredAt.current = null;
-        if (start === null) return;
-        const durationMs = Math.min(DWELL_MAX_MS, Date.now() - start);
-        if (durationMs >= DWELL_MIN_MS) track({ type: "panel_dwell", panel: id, detail: { durationMs } });
-      }}
-      onPointerDown={(e) => {
-        setPointer({ panel: id, down: true });
-        keepRevealed(e.target);
-        if (!fromFrameControl(e.target)) markFocus("pointer");
-      }}
-      onPointerUp={(e) => {
-        // Touch has no hover: once the finger lifts, the pointer is nowhere.
-        setPointer({ panel: e.pointerType === "touch" ? null : id, down: false });
-      }}
-      onPointerCancel={() => setPointer({ panel: null, down: false })}
-      onFocus={(e) => {
-        setLit(true);
-        keepRevealed(e.target);
-        if (!fromFrameControl(e.target)) markFocus("keyboard");
-      }}
-      onBlur={(e) => {
-        // Focus left the card (not just moved inside it), and the pointer is not over it.
-        const to = e.relatedTarget;
-        if (to instanceof Node && cardRef.current?.contains(to)) return;
-        if (!cardRef.current?.matches(":hover")) setLit(false);
-      }}
+      onPress={keepRevealed}
+      onFocusInside={keepRevealed}
     >
       <motion.header
         layout={reduceMotion ? false : "position"}
@@ -544,7 +321,7 @@ export function PanelFrame({ placement, reduceMotion, children, ref, cell, cue, 
         {...{ [PANEL_HEADER_ATTR]: id }}
         // A double-click on the title area does what "Make bigger" does; the buttons and tags keep their own clicks.
         onDoubleClick={(e) => {
-          if (e.target instanceof Element && e.target.closest("button, [data-frame-control]")) return;
+          if (e.target instanceof Element && e.target.closest(`button, [${CARD_CONTROL_ATTR}]`)) return;
           window.getSelection()?.removeAllRanges();
           toggleBigger("pointer");
         }}
@@ -592,7 +369,7 @@ export function PanelFrame({ placement, reduceMotion, children, ref, cell, cue, 
           </AnimatePresence>
         )}
 
-        <div className="ml-auto flex shrink-0 items-center gap-0.5" data-frame-control>
+        <div className="ml-auto flex shrink-0 items-center gap-0.5" {...CONTROL}>
           {/* While a tag shows, "Why here?" is an icon, so "Linked to" and the name fit beside the title. */}
           <button
             ref={whyRef}
@@ -665,7 +442,7 @@ export function PanelFrame({ placement, reduceMotion, children, ref, cell, cue, 
       {whyOpen && whyRef.current ? (
         <WhyPopover anchor={whyRef.current} placement={placement} title={title} onClose={closeWhy} />
       ) : null}
-    </motion.section>
+    </PanelCard>
   );
 }
 
@@ -751,7 +528,7 @@ function LinkTag({
   return (
     <motion.span
       ref={wrapRef}
-      data-frame-control
+      {...CONTROL}
       initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 3 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: delayMs / 1000, duration: (reduceMotion ? REDUCED_FADE_MS : 250) / 1000 }}

@@ -3,7 +3,7 @@
  * end to end, with fake timers.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ANCHOR_IDLE_RELEASE_MS, COMMAND_PANEL_AT, createAdaptiveStore, UNDO_HOLD_MS, type AdaptiveRequest, type AdaptiveResponse } from "./adaptiveStore.ts";
+import { ANCHOR_IDLE_RELEASE_MS, COMMAND_PANEL_AT, createAdaptiveStore, UNDO_HOLD_MS, type AdaptiveRequest, type AdaptiveResponse, type AdaptiveSpec } from "./adaptiveStore.ts";
 import { defineCatalog } from "./catalog.ts";
 import { createPolicy, type PolicyInput } from "./createPolicy.ts";
 import type { ChoiceJudgment, CoreCommandJudgments, CoreJudgments, ScoreJudgment } from "./judgments.ts";
@@ -15,6 +15,12 @@ type G = "write" | "research" | "unclear";
 type A = "cite" | "none";
 type S = CoreSuggestion<A>;
 type J = CoreJudgments<P, G, A> & { command?: CoreCommandJudgments<P, A> };
+interface WritingSpec extends AdaptiveSpec {
+  panel: P;
+  goal: G;
+  action: A;
+  policyExtra: undefined;
+}
 
 const catalog = defineCatalog<P, G, A>({
   panelIds: ["drafts", "sources", "outline", "notes"],
@@ -53,7 +59,7 @@ const writing = (o: Partial<J> = {}): J => ({
 let sent: AdaptiveRequest[] = [];
 let answer: (req: AdaptiveRequest) => J = () => writing();
 function make() {
-  return createAdaptiveStore<P, G, A, S, string, J>({
+  return createAdaptiveStore<WritingSpec>({
     catalog,
     policy,
     words: { panels: catalog.panels, itemWords: { draft: "draft", source: "source" } },
@@ -145,7 +151,7 @@ describe("createAdaptiveStore", () => {
     store.undo();
     expect(ids(store)).toContain("outline");
     expect(store.getState().plan).not.toBe(dismissed);
-    expect(store.getState().plan.decisions[0].text).toBe("Undid the last layout change");
+    expect(store.getState().plan.decisions[0].text).toBe("Restored the previous layout");
     // The undo holds while the same judgments come back.
     store.track({ type: "item_open", panel: "drafts", detail: { itemId: "d-2" } });
     await vi.advanceTimersByTimeAsync(UNDO_HOLD_MS - 2_000);
@@ -167,7 +173,7 @@ describe("createAdaptiveStore", () => {
   });
 
   it("reports a failed request as an error and keeps the layout", async () => {
-    const store = createAdaptiveStore<P, G, A, S, string, J>({
+    const store = createAdaptiveStore<WritingSpec>({
       catalog,
       policy,
       words: { panels: catalog.panels, itemWords: {} },

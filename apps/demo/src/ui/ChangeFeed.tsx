@@ -28,7 +28,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import type { Decision, LayoutPlan } from "../../shared/types.ts";
 import { useEngine } from "../engine/store.ts";
-import { useWindowKeydown } from "@attune/react";
+import { useWindowKeydown } from "@attuneui/react";
 import { requestInspectorTab } from "./hooks.ts";
 import { useNoteUndoListener } from "./linking.tsx";
 

@@ -178,7 +178,7 @@ the policy plans exactly as before.
 ### Constants
 
 Since the monorepo split, `choreography.ts` and `quiet.ts` in the Where
-column are in `packages/core/src/` (`@attune/core`); the demo's
+column are in `packages/core/src/` (`@attuneui/core`); the demo's
 `src/ui/choreography.ts` and `src/engine/quiet.ts` bind them to its catalog.
 
 | Name | Where | Value | Why |
@@ -224,8 +224,8 @@ get quiet, without hiding anything and without jarring moves.
 | Question | Who answers | Where |
 | --- | --- | --- |
 | How useful is each panel for the work right now? | Jev, the existing `rel_<panel>` Scores (no question changed) | `server/questions.ts` |
-| Is a panel low, for how many rounds, and inside the band? | Code | `countQuietRound` in `@attune/core` (`packages/core/src/quiet.ts`) |
-| Is it exempt right now? | Code | `quietPanels` in `@attune/core`, with the demo's `isQuietTouch` (`src/engine/quiet.ts`), and the policy's own checks |
+| Is a panel low, for how many rounds, and inside the band? | Code | `countQuietRound` in `@attuneui/core` (`packages/core/src/quiet.ts`) |
+| Is it exempt right now? | Code | `quietPanels` in `@attuneui/core`, with the demo's `isQuietTouch` (`src/engine/quiet.ts`), and the policy's own checks |
 | Does it shrink this round? | Code | `computePlan` in `src/engine/policy.ts` |
 | How does it look? | UI | `PanelFrame.tsx`, `Canvas.tsx` |
 
@@ -321,7 +321,7 @@ user reopened anyway, a sign the fade was wrong (`FlowMetrics.quiet`).
 ### Constants
 
 Since the monorepo split, `choreography.ts` and `quiet.ts` in the Where
-column are in `packages/core/src/` (`@attune/core`); the demo's
+column are in `packages/core/src/` (`@attuneui/core`); the demo's
 `src/ui/choreography.ts` and `src/engine/quiet.ts` bind them to its catalog.
 
 | Name | Where | Value | Why |
@@ -662,7 +662,7 @@ and one switch turns it all off.
 | What did the user do, and does it teach a habit? | Code, from tracked events as they happen | `habitStep` in `src/engine/habits.ts`, called from `trackInternal` in `src/engine/store.ts` |
 | Is it a habit yet? | Code: decayed counts and an evidence bar | `isHabit`, `nextPanels`, `nextGoals`, `actionsAfter` |
 | Where will the user likely go next? | Code: the learned chance per panel | `habitHints` |
-| How much does it move a panel? | Code: the habit weight, on top of the blend | `scorePanels` in `@attune/core`, called by the demo's `scorePanels` in `src/engine/policy.ts` with the habit weight |
+| How much does it move a panel? | Code: the habit weight, on top of the blend | `scorePanels` in `@attuneui/core`, called by the demo's `scorePanels` in `src/engine/policy.ts` with the habit weight |
 | What will the user likely do next? | Jev, as before; the habit only when Jev is unsure | `buildSuggestions` |
 | What does Jev read about it? | At most two habits, in words | `habitObservations`, `SnapshotContext.habits` |
 

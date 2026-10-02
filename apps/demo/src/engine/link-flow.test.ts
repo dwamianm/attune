@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActionId, GoalId, LayoutMode, PanelId } from "../../shared/catalog.ts";
 import type { AdaptRequest, AdaptResponse, Judgments } from "../../shared/types.ts";
 import { postAdapt } from "./api.ts";
-import { cellFits, cellsOverlap } from "@attune/core";
+import { cellFits, cellsOverlap } from "@attuneui/core";
 import { actionApplies, buildRecordCandidates, handledRecords } from "./nextUp.ts";
 import { DEFAULT_SETTINGS, useEngine } from "./store.ts";
 import { choiceJ, makeJudgments } from "./test-helpers.ts";

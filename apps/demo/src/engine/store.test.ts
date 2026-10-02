@@ -4,7 +4,7 @@ import type { AdaptRequest, AdaptResponse, InvoiceStatusArg, Judgments, Timefram
 import { ApiError, postAdapt } from "./api.ts";
 import { defaultPlan } from "./policy.ts";
 import { frontGroup } from "./focusAids.ts";
-import { cellFits, cellsOverlap } from "@attune/core";
+import { cellFits, cellsOverlap } from "@attuneui/core";
 import { ANCHOR_IDLE_RELEASE_MS, DEFAULT_SETTINGS, POINTER_LEAVE_HOLD_MS, POINTER_MOVE_HOLD_MS, UNDO_HOLD_MS, useEngine } from "./store.ts";
 import { choiceJ, makeJudgments } from "./test-helpers.ts";
 

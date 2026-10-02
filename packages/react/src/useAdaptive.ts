@@ -1,5 +1,5 @@
 /**
- * useAdaptive: read an adaptive store (createAdaptiveStore in @attune/core)
+ * useAdaptive: read an adaptive store (createAdaptiveStore in @attuneui/core)
  * from React. The component re-renders when the selected value changes.
  *
  * The selector must return a value that is already in the state, or a

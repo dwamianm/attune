@@ -1,9 +1,9 @@
 /**
- * The relayout timing and cues are in @attune/core (choreography.ts). This
+ * The relayout timing and cues are in @attuneui/core (choreography.ts). This
  * file binds the two sentences that name panels to the demo's panel titles,
  * and gives the cue types the demo's panel ids.
  */
-import * as Lib from "@attune/core";
+import * as Lib from "@attuneui/core";
 import { panelTitle, type PanelId } from "../../shared/catalog.ts";
 import type { LayoutPlan } from "../../shared/types.ts";
 

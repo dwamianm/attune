@@ -1,0 +1,38 @@
+{
+  "name": "@attuneui/playground",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A second Attune app, a small help desk, built only from the library packages. It shows what the library can do on its own and what it still lacks.",
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c blue,magenta \"pnpm dev:server\" \"pnpm dev:web\"",
+    "dev:server": "tsx watch server/index.ts",
+    "dev:web": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@attuneui/core": "workspace:*",
+    "@attuneui/jev": "workspace:*",
+    "@attuneui/react": "workspace:*",
+    "@attuneui/server": "workspace:*",
+    "@hono/node-server": "catalog:",
+    "@typesafe-ai/sdk": "catalog:",
+    "hono": "catalog:",
+    "motion": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "concurrently": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

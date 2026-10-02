@@ -4,11 +4,11 @@
  *
  * The core questions (goal, relevance per panel, struggling, layout,
  * expertise, next action, and the command panel and action) and the core
- * state come from @attune/jev, built from the demo's catalog. This file adds
+ * state come from @attuneui/jev, built from the demo's catalog. This file adds
  * the demo's own: the client questions, the next record and list work, the
  * goal-done and next-task questions (focus aid 2), the link questions, the
  * invoice status and time period of a command, and meeting prep (focus aid
- * 4). The same rules hold for them (see the notes in @attune/jev):
+ * 4). The same rules hold for them (see the notes in @attuneui/jev):
  *   - Next-record questions ride along when the client sends record
  *     candidates. The candidates live in the Choice criteria, never in the
  *     state, so the state stays the same for every other question.
@@ -32,7 +32,7 @@ import {
   RELEVANCE_LEVELS,
   relevancePanel,
   type JevState,
-} from "@attune/jev";
+} from "@attuneui/jev";
 import { choice, noul, score } from "@typesafe-ai/sdk";
 import type { EntryType, JsonValue, NoulQuestion, Question } from "@typesafe-ai/sdk";
 import { CATALOG, GOALS, PANELS, type PanelId } from "../shared/catalog.ts";
@@ -53,7 +53,7 @@ import type {
 
 // ---------------------------------------------------------------------------
 // Question ids (internal; normalize.ts reads answers by these). The core ids
-// come from @attune/jev.
+// come from @attuneui/jev.
 // ---------------------------------------------------------------------------
 
 export const QUESTION_IDS = {
@@ -106,7 +106,7 @@ function cleanCommand(req: AdaptRequest): string | null {
   return text ? text : null;
 }
 
-/** The core state (buildCoreState in @attune/jev), plus `client_companies` with a command. */
+/** The core state (buildCoreState in @attuneui/jev), plus `client_companies` with a command. */
 export function buildState(req: AdaptRequest): JevState {
   const command = cleanCommand(req);
   const state = buildCoreState({ app: APP_DESCRIPTION, snapshot: req.snapshot, command });
@@ -116,7 +116,7 @@ export function buildState(req: AdaptRequest): JevState {
 }
 
 // ---------------------------------------------------------------------------
-// Shared wording (the core wording is in @attune/jev)
+// Shared wording (the core wording is in @attuneui/jev)
 // ---------------------------------------------------------------------------
 
 const INVOICE_STATUS_CRITERIA: Record<InvoiceStatusArg, string> = {
@@ -395,7 +395,7 @@ function taskOption(task: TaskCandidate): EntryType {
 // ---------------------------------------------------------------------------
 
 /**
- * Every question for one round: the core questions from @attune/jev, then the
+ * Every question for one round: the core questions from @attuneui/jev, then the
  * demo's own, then (with a command) the core command questions and the
  * demo's. The order is the order Jev receives them in.
  */

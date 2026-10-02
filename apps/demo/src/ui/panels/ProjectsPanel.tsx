@@ -10,7 +10,7 @@ import type { Project } from "../../../shared/fixtures.ts";
 import type { PanelViewState } from "../../engine/contract.ts";
 import { useEngine } from "../../engine/store.ts";
 import { formatDate, percent, PROJECT_STATUS_LABEL, projectDeadlineText, projectLabel } from "../format.ts";
-import { useNow, useRovingList } from "@attune/react";
+import { useNow, useRovingList } from "@attuneui/react";
 import { useItemProps } from "../linking.tsx";
 import {
   Button,

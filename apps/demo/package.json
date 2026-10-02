@@ -1,5 +1,5 @@
 {
-  "name": "@attune/demo",
+  "name": "@attuneui/demo",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -15,16 +15,16 @@
     "eval": "tsx scripts/eval.ts"
   },
   "dependencies": {
-    "@attune/core": "workspace:*",
-    "@attune/jev": "workspace:*",
-    "@attune/react": "workspace:*",
-    "@attune/server": "workspace:*",
-    "@hono/node-server": "^2.1.3",
+    "@attuneui/core": "workspace:*",
+    "@attuneui/jev": "workspace:*",
+    "@attuneui/react": "workspace:*",
+    "@attuneui/server": "workspace:*",
+    "@hono/node-server": "catalog:",
     "@typesafe-ai/sdk": "catalog:",
     "clsx": "^2.1.1",
-    "hono": "^4.13.11",
+    "hono": "catalog:",
     "lucide-react": "^1.49.0",
-    "motion": "^13.4.6",
+    "motion": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "zustand": "^5.0.15"
@@ -34,13 +34,13 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "@vitejs/plugin-react": "^6.1.1",
-    "concurrently": "^10.0.5",
+    "@vitejs/plugin-react": "catalog:",
+    "concurrently": "catalog:",
     "esbuild": "0.28.2",
     "tailwindcss": "^4.3.3",
-    "tsx": "^4.23.15",
+    "tsx": "catalog:",
     "typescript": "catalog:",
-    "vite": "^8.3.1",
+    "vite": "catalog:",
     "vitest": "catalog:"
   }
 }

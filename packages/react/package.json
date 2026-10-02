@@ -1,23 +1,58 @@
 {
-  "name": "@attune/react",
+  "name": "@attuneui/react",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
-  "description": "React bindings for Attune: useAdaptive for an adaptive store, and small hooks for keyboard, sizes, roving lists, and popovers.",
+  "description": "React bindings for Attune: the adaptive canvas (AdaptiveCanvas, PanelCard, Dock, ChangeLine) with staged relayouts, useAdaptive and useStoreCanvas for a library store, and small hooks.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dwamianm/attune.git",
+    "directory": "packages/react"
+  },
+  "bugs": "https://github.com/dwamianm/attune/issues",
+  "keywords": [
+    "attune",
+    "adaptive-ui",
+    "ai",
+    "layout",
+    "react"
+  ],
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts"
   },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
   "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepack": "node ../../scripts/build-package.mjs"
+  },
+  "dependencies": {
+    "@attuneui/core": "workspace:^"
   },
   "peerDependencies": {
+    "motion": "^13.0.0",
     "react": "^19.0.0"
   },
   "devDependencies": {
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "motion": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "typescript": "catalog:",

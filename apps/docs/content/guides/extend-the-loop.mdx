@@ -1,0 +1,118 @@
+---
+title: Extend the loop
+---
+
+import { Callout } from "nextra/components";
+
+# Extend the loop
+
+There is one adaptive loop, in `@attuneui/core`. An app adds its own
+features to it through **hooks** at fixed points of the loop, never with a
+second loop. The studio demo adds all of its features this way: link cues
+that stay until the user clears them, an Up next card, Back to chips, a
+Done card, learned habits, meeting prep, quiet panels, the front group,
+saved settings, and metrics.
+
+## Your types
+
+Extend `AdaptiveSpec` and narrow what your app uses. The rest follow.
+
+```ts
+interface DeskSpec extends AdaptiveSpec {
+  panel: PanelId;
+  goal: GoalId;
+  action: ActionId;
+  kind: RecordKind;
+  // Optional: your own event types, suggestion type, settings, state, and actions.
+  eventType: "up_next_open" | "links_dismiss";
+  settings: AdaptiveSettings & { linkLines: "stay" | "fade" };
+  state: { links: LinkSet | null };
+  actions: { clearLinks(): void };
+}
+```
+
+## Hooks in the config
+
+Simple hooks go straight into the store config:
+
+```ts
+createAdaptiveStore<DeskSpec>({
+  catalog,
+  policy,
+  words,
+  send,
+  linked: (anchor, state, now) => linkedRecords(anchor, state, now),
+  anchorLabel: (ref) => (ref.itemKind === "ticket" ? ref.itemId : ref.client),
+  describe: (input) => (input.type === "up_next_open" ? `Opened ${input.detail?.label} from Up next` : undefined),
+  triggers: (type, focusChanged) => TRIGGER_TYPES.has(type) || (type === "panel_focus" && focusChanged),
+});
+```
+
+## extend: state, actions, and hooks with memory
+
+When a feature keeps its own bookkeeping, write it in `extend`. It gets
+the loop's primitives (`AdaptiveKernel`) and returns your state, your
+actions, and your hooks:
+
+```ts
+createAdaptiveStore<DeskSpec>({
+  ...config,
+  extend: (k) => {
+    let dismissedLinks = 0;
+    return {
+      state: { links: null },
+      actions: {
+        clearLinks() {
+          dismissedLinks++;
+          k.set({ links: null });
+          k.track({ type: "links_dismiss" }, { schedule: false });
+        },
+      },
+      hooks: {
+        planChanged: () => k.set({ links: linksFrom(k.get().plan) }),
+        afterPolicy: (plan) => withMySuggestion(plan),
+      },
+    };
+  },
+});
+```
+
+The primitives include `get` and `set`, `track` (with `schedule: false`
+to not ask the model, `anchor: false` to not move the anchor), `openPanel`,
+`setPlanDirect` (a manual edit, applied at once), `replanLocal`,
+`refreshPassive` (new suggestions only), `releaseAnchor`, `setAnchor`,
+`addSuggestion`, `persist`, and `version`.
+
+## Where the hooks run
+
+| Point | Hooks |
+| --- | --- |
+| Words, types, records | `describe`, `triggers`, `itemKindOf`, `clientIn`, `anchorLabel`, `sameSuggestion`, `suggestionKey`, `suggestionPanel`, `suggestionDetail` |
+| Each event | `trackStart` (state to set with the event), `logged`, `worked` (after the anchor followed it), `tracked` (last) |
+| A request | `request` (the whole request), `requestFields` (extra fields on the default one), `isAbort`, `watchHealth` |
+| A command | `resolveCommand`, `commandResolved`, `commandUnclear`, `commandFailed`, `commandAnchor` |
+| An answer | `roundStart`, `roundJudged`, `roundDone`, `densityIgnores` |
+| The plan | `initialPlan`, `front`, `linkHold`, `linked`, `policyInput`, `extra`, `gather`, `afterPolicy`, `layoutHold`, `planPatch`, `committed`, `planChanged` |
+| Suggestions | `suggestionAccepted`, `suggestionDismissed` |
+| Settings | `mergeSettings`, `settingsSet`, `settingsReleased`, `settingsOther`, `settingsDone`, `persist` |
+| Undo and reset | `undoBack`, `undoing`, `undone`, `resetStart`, `resetting`, `resetDone` |
+
+Each hook's comment in `adaptiveStore.ts` says exactly when it runs.
+
+<Callout type="info">
+  A command that sets filters or names records is a `resolveCommand` hook:
+  it returns the outcome, the panel to promote, a suggestion, and your own
+  fields (the demo's view changes), and `commandResolved` applies them.
+</Callout>
+
+## On a zustand store
+
+`createAdaptiveEngine` runs the same loop on a host's `get` and `set`,
+so the state can live in zustand and the UI can keep `useStore(selector)`:
+
+```ts
+export const useEngine = create<Engine>()((set, get) => createAdaptiveEngine<MySpec>({ ...config, extend: myExtension }, { get, set }));
+```
+
+The studio demo's store is exactly this:
+[`apps/demo/src/engine/store.ts`](https://github.com/dwamianm/attune/blob/main/apps/demo/src/engine/store.ts).

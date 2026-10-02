@@ -11,7 +11,7 @@
  * ./store.ts, and reports what the user does through `track()`.
  * UI code must never call /api directly.
  */
-import type * as Lib from "@attune/core";
+import type * as Lib from "@attuneui/core";
 import type { ActionId, GoalId, LayoutMode, PanelId } from "../../shared/catalog.ts";
 import type { CalendarEvent, Invoice, Message, Project, Task } from "../../shared/fixtures.ts";
 import type {
@@ -708,6 +708,8 @@ export interface EngineActions {
   dismissPrep(): void;
   /** Focus aid 4, a test tool: add a meeting starting SIMULATED_MEETING_IN_MS from now with a client who has recent activity. Reset removes it. */
   simulateMeeting(): void;
+  /** Stop every timer and the request in flight (tests). */
+  dispose(): void;
 }
 
 export type Engine = EngineState & EngineActions;
@@ -735,7 +737,7 @@ export type BuildSnapshot = (events: SignalEvent[], ctx: SnapshotContext) => imp
 
 /** ./policy.ts must export computePlan and defaultPlan. Pure, no DOM, no store access. */
 /**
- * The policy's input (PolicyInput in @attune/core: judgments, the previous
+ * The policy's input (PolicyInput in @attuneui/core: judgments, the previous
  * plan, events, weights, pins, dismissals, focus, recent modes and
  * densities, undo memory, the anchor and its linked records, holds, link
  * cues, bigger panels, quiet panels, the front group, habits), for the
@@ -751,19 +753,19 @@ export type ComputePlan = (input: PolicyInput) => LayoutPlan;
 export type DefaultPlan = () => LayoutPlan;
 
 // ---------------------------------------------------------------------------
-// Grid packer (@attune/core) and relations (./relations.ts). Pure, no DOM.
+// Grid packer (@attuneui/core) and relations (./relations.ts). Pure, no DOM.
 // See docs/anchored-relayout.md for the algorithm and the constants.
 // ---------------------------------------------------------------------------
 
 /**
- * The packer's types (@attune/core), for this app's panel ids. See PackItem,
+ * The packer's types (@attuneui/core), for this app's panel ids. See PackItem,
  * PackInput, and PackResult there for what each field means.
  */
 export type PackItem = Lib.PackItem<PanelId>;
 export type PackInput = Lib.PackInput<PanelId>;
 export type PackResult = Lib.PackResult<PanelId>;
 export type PackGrid = Lib.PackGrid<PanelId>;
-/** Panels an anchored round must not change. See lockedPanels in @attune/core. */
+/** Panels an anchored round must not change. See lockedPanels in @attuneui/core. */
 export type LockedPanels = Lib.LockedPanels<PanelId>;
 /** Cell changes between two packed plans, for LayoutPlan.changeSummary. */
 export type SummarizeChanges = (previous: LayoutPlan, next: LayoutPlan) => ChangeSummary;

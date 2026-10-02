@@ -1,0 +1,81 @@
+---
+title: How it works
+---
+
+# How it works
+
+One click goes through the same steps in every Attune app:
+
+```
+UI signals            clicks, searches, filters, pointer rests, commands      store.track()
+  -> event log        each event with a one-sentence description               the store
+  -> snapshot         recent activity and behavior facts, in words             buildSnapshot
+  -> one request      debounced, one in flight, commands first                 AdaptScheduler
+  -> model round      the core questions, built from the catalog               @attuneui/jev
+  -> judgments        typed Choice, Score, and probability answers             readRound
+  -> policy           weights, thresholds, hysteresis, in code                 createPolicy
+  -> layout plan      mode, ordered placements with sizes, dock, suggestions
+  -> place step       explicit grid cells, the clicked panel held still        placePlan
+  -> canvas           the staged relayout                                      AdaptiveCanvas
+```
+
+## Signals and the snapshot
+
+Panels report what the user does with `track()`. Every event gets a
+sentence, for example "Opened ticket T-201 in Tickets". Models read words
+better than numbers and cannot count, so code does the counting and the
+timing and writes the result as sentences too: repeated searches for the
+same word, panels opened and closed within seconds, a record opened again
+and again without acting on it. That is the **snapshot**: the recent
+activity, the current focus, the panels on screen, and these behavior
+facts. See [Signals and the snapshot](/concepts/signals-and-snapshot).
+
+## When the store asks
+
+Not every event asks the model. Opening a record, a search, a filter, an
+action, a command, opening or docking a panel, turning down a suggestion,
+and a click into another panel do (`CORE_TRIGGER_TYPES`; moving focus with
+the keyboard does not). Pointer rests, scrolls, and pins only refresh the
+suggestions from the last answer. The scheduler (`AdaptScheduler`) waits
+700 ms after the last trigger (`DEBOUNCE_MS`), never more than 2.5 s after
+the first (`MAX_WAIT_MS`), keeps one request in flight, and sends a command
+at once.
+
+## The model's judgments
+
+The server asks the core questions in one round: the goal (a Choice from
+the catalog's goals), how useful each panel is now (one Score per panel),
+whether the user is struggling (a probability), which layout fits (focus,
+compare, or overview), how familiar the user is (a Score), and the likely
+next step (a Choice from the catalog's actions). With a command it also
+asks which panel and which action the command means. Each answer comes back
+with its confidence and its probabilities, and the reader checks it against
+the question that was sent.
+
+## The policy
+
+`createPolicy` turns the judgments into a layout plan, in code. It blends
+the model's relevance, the measured recent use, and the goal's affinity
+into one priority per panel, picks the mode and the density with
+hysteresis, decides which panels stay, come, or go, and sizes them by
+slot. Every decision comes with a sentence for the change line. See
+[The layout policy](/concepts/layout-policy).
+
+## The place step and the canvas
+
+`placePlan` packs the plan into explicit grid cells. The panel the user
+just worked in (the **anchor**) keeps its cell, and the rest is packed
+around it. The canvas then plays the change in stages. The store holds a
+change back while the user's hands are on the canvas, keeps changes a few
+seconds apart, and keeps an undone change from coming back. See
+[The calm relayout](/concepts/calm-relayout).
+
+## Who owns what
+
+| Part | Owned by |
+| --- | --- |
+| Panels, goals, actions, and their words | The app (the catalog) |
+| What an event means and how much it counts | The app, on top of the core signal types |
+| What the user is doing, and which panels help | The model, as judgments |
+| Every threshold, weight, size, and cell | The library, in code |
+| How the panels look | The app (the canvas draws no look of its own) |

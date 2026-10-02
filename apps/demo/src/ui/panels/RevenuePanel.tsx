@@ -13,7 +13,7 @@ import { useShallow } from "zustand/react/shallow";
 import { CLIENTS, MONTHLY_REVENUE, type Invoice } from "../../../shared/fixtures.ts";
 import { useEngine } from "../../engine/store.ts";
 import { formatMoney, formatMoneyShort } from "../format.ts";
-import { useElementSize } from "@attune/react";
+import { useElementSize } from "@attuneui/react";
 import { useItemProps } from "../linking.tsx";
 import { Button, Compact, HeroSplit, PanelColumn, Segmented, Toolbar, type PanelProps } from "./common.tsx";
 

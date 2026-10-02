@@ -35,7 +35,7 @@ import type { ItemKind, SignalEvent, SignalType } from "../../shared/types.ts";
 import type { HabitCount, HabitHints, HabitMemory, NextTask, TimeOfDay } from "./contract.ts";
 import { kindOfId } from "./relations.ts";
 import type { TaskBoost } from "./taskDone.ts";
-import { lowerFirst } from "@attune/core";
+import { lowerFirst } from "@attuneui/core";
 
 // ---------------------------------------------------------------------------
 // Constants. Demo defaults; tune them here.

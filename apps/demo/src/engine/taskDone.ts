@@ -26,7 +26,7 @@ import type { ChoiceJudgment } from "../../shared/types.ts";
 import { clockTime, dayOffset, daysUntil, eventLabel, invoiceLabel, messageLabel, projectLabel, taskDueText } from "../ui/format.ts";
 import type { AppData, NextTask, PanelViewState, WorkingGoal } from "./contract.ts";
 import { rankedRecords, recordKey, type RevealPatch } from "./nextUp.ts";
-import { numberWord } from "@attune/core";
+import { numberWord } from "@attuneui/core";
 
 // ---------------------------------------------------------------------------
 // Constants. Demo defaults; tune them here.

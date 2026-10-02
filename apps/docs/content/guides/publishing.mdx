@@ -1,0 +1,54 @@
+---
+title: Releasing the packages
+---
+
+import { Steps } from "nextra/components";
+
+# Releasing the packages
+
+The four packages (`@attuneui/core`, `@attuneui/react`, `@attuneui/jev`,
+`@attuneui/server`) are public on npm, MIT licensed, and released together
+at one version with [changesets](https://github.com/changesets/changesets).
+
+## The first release
+
+<Steps>
+
+### Create the npm organization
+
+On npmjs.com, create the free organization `attuneui` for public
+packages, and log in with `npm login`.
+
+### Publish
+
+```sh
+pnpm release
+```
+
+It builds the four packages and runs `changeset publish`, which publishes
+each package whose version is not on npm yet and tags it in git.
+
+### Push the tags
+
+```sh
+git push --follow-tags
+```
+
+</Steps>
+
+## Later releases
+
+1. With each change users should know about, run `pnpm changeset`, pick
+   the bump (patch, minor, or major), and describe it in one line.
+2. To release, run `pnpm version-packages`. It bumps the version and
+   writes each package's CHANGELOG.md. Commit that.
+3. Run `pnpm release` and push the tags.
+
+## What goes out
+
+Each package builds with plain `tsc` into `dist/`: JavaScript, `.d.ts`
+files, and their maps. The tarball holds `dist/`, `src/` without the tests
+(for the maps), `README.md`, and `LICENSE`. Inside the monorepo, apps and
+tests import each package's source, so work on the library needs no
+build. To see a package exactly as it would go out, run `pnpm pack` in its
+folder.

@@ -10,7 +10,7 @@ import { useShallow } from "zustand/react/shallow";
 import type { CalendarEvent } from "../../../shared/fixtures.ts";
 import { useEngine } from "../../engine/store.ts";
 import { clockTime, dayOffset, dayWord, eventLabel } from "../format.ts";
-import { useNow } from "@attune/react";
+import { useNow } from "@attuneui/react";
 import {
   Button,
   Compact,

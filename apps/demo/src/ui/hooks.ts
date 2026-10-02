@@ -3,10 +3,10 @@
  * event buses, one for focusing the command bar from anywhere (help hint,
  * guide tips, example chips) and one for opening an inspector tab. The
  * generic hooks (keyboard, debounce, sizes, roving lists, popovers) are in
- * @attune/react.
+ * @attuneui/react.
  */
 import { useEffect } from "react";
-import { IS_MAC, useLatest } from "@attune/react";
+import { IS_MAC, useLatest } from "@attuneui/react";
 
 /** Display label for the command bar shortcut. */
 export const MOD_K = IS_MAC ? "⌘K" : "Ctrl K";

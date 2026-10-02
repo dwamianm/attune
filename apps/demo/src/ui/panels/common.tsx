@@ -8,7 +8,7 @@ import { Search, X, type LucideIcon } from "lucide-react";
 import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 import type { ItemKind, PanelSize } from "../../../shared/types.ts";
 import { STEP_ACTION_ATTR } from "../domHooks.ts";
-import { useRovingList } from "@attune/react";
+import { useRovingList } from "@attuneui/react";
 import { useItemProps } from "../linking.tsx";
 
 export interface PanelProps {

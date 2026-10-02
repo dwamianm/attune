@@ -2,7 +2,7 @@
  * Turns raw Jev answers into the typed Judgments the client policy reads.
  *
  * The core judgments (readCoreJudgments, readCoreCommand) and the answer
- * readers come from @attune/jev; this file adds the demo's own. Every answer
+ * readers come from @attuneui/jev; this file adds the demo's own. Every answer
  * is checked against the question that was actually sent: a Choice must pick
  * one of the options we offered, and a Score's probabilities must cover the
  * levels we wrote. Anything missing or out of shape throws, so adapt.ts can
@@ -22,7 +22,7 @@ import {
   scoreLevels,
   type Answers,
   type QuestionMap,
-} from "@attune/jev";
+} from "@attuneui/jev";
 import { ACTION_IDS, CATALOG } from "../shared/catalog.ts";
 import {
   INVOICE_STATUS_ARGS,

@@ -4,7 +4,7 @@
  * CloudFront serves the web app from S3 and forwards /api/* here, after its
  * password gate, with the EDGE_SECRET_HEADER secret. The routes, rate limits,
  * and validation are the same app.ts the local server runs (index.ts); only
- * the loopback checks give way to EdgeAccess (@attune/server).
+ * the loopback checks give way to EdgeAccess (@attuneui/server).
  */
 import { handle } from "hono/aws-lambda";
 import { createApp } from "./app.ts";

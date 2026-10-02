@@ -88,7 +88,7 @@ export function checkRequest(
 }
 
 /**
- * A fixed-window rate limiter. An app paced by AdaptScheduler (@attune/core)
+ * A fixed-window rate limiter. An app paced by AdaptScheduler (@attuneui/core)
  * sends at most about one request a second (one in flight, a 1 s gap,
  * commands can replace a flight), so 8 in any 2 s window only ever stops a
  * loop, never a person.

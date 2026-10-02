@@ -1,0 +1,92 @@
+---
+title: "@attuneui/react"
+---
+
+# @attuneui/react
+
+The adaptive canvas for React, with staged relayouts.
+
+```sh
+npm install @attuneui/react @attuneui/core motion react
+```
+
+`motion` and `react` are peer dependencies.
+
+## useStoreCanvas
+
+Wires a store from `createAdaptiveStore` to the canvas: the plan, the
+column count (it follows the window), the focused panel, the live anchor,
+and the events the canvas reports (pointer, holds, focus, pointer rests).
+
+```tsx
+const canvas = useStoreCanvas(store);
+return <AdaptiveCanvas {...canvas} renderCard={(p) => <Panel id={p.id} size={p.size} />} />;
+```
+
+## AdaptiveCanvas
+
+Shows a layout plan: every card in the cell the plan gives it, every round
+staged. It also keeps focus through a re-plan, keeps the held panel still
+on screen, leaves the slot of a card docked under the pointer, and follows
+and rings a panel sent to the front.
+
+| Prop | Meaning |
+| --- | --- |
+| `plan`, `columns` | The plan and the column count. |
+| `renderCard(placement)` | One card's content. |
+| `card` | Draw each card yourself around `PanelCard`. Default: `PanelCard`. |
+| `cardClassName(placement)` | A class name for each default card. |
+| `quiet(placement)` | Whether a card shows quiet now. |
+| `focused` | The focused panel, so a click into it is not reported again. |
+| `anchorPanel` | The live anchor's panel: its card sits above the others. |
+| `holdStill` | The panel that must hold still on screen (the live work anchor). |
+| `toFront`, `stickyTop`, `scrollTarget` | A panel sent to the front, the bottom of a sticky bar, and what to scroll to. |
+| `cues` | The round's cues, when you track them yourself (`useRoundCues`). |
+| `overlay(gridRef)` | Drawn inside the grid after the cards, for example link lines. |
+| `onPointer`, `onCanvasHold`, `onFocusPanel`, `onDwell` | What the user's hands do. `useStoreCanvas` gives all four. |
+| `className`, `ghostClassName`, `id`, `rowHeight`, `gap`, `empty` | The grid's class, the empty slot's class, an id, the row height (104 px by default), the gap, and what shows when every panel is docked. |
+
+## PanelCard
+
+One animated card. It glides to its new cell and size, plays its part of a
+round, fades while quiet and lights up on hover or focus, and reports
+focus, the pointer, and pointer rests. Draw your own card around it with
+the canvas's `card` prop:
+
+```tsx
+function Card(props: PanelCardProps<PanelId, RecordKind>) {
+  return (
+    <PanelCard {...props} className="card" radius={14}>
+      <CardHeader placement={props.placement} />
+      {props.children}
+    </PanelCard>
+  );
+}
+```
+
+Inside a card, `usePanelCard()` gives the card's motion: its layout
+transition (for parts with `layout="position"`), its cue, when it lands,
+and whether it shows faded. Mark your card's own controls (pin, dock,
+tags) with `CARD_CONTROL_ATTR`, so pressing them does not count as work
+in the panel. `useCanvasEdit().noteDismiss(panel)` before a dock keeps the
+card's slot empty while the pointer stays.
+
+## Dock and ChangeLine
+
+`Dock` lists the docked panels; a leaving card flies into its item.
+`ChangeLine` shows the last round's changes in one line, with Undo, and
+keeps the last change through a round that changes nothing.
+
+## Hooks
+
+| Hook | What it does |
+| --- | --- |
+| `useAdaptive(store, selector)` | Reads a store (any with `getState` and `subscribe`, zustand too). |
+| `useCanvasColumns(onChange)` | 1, 2, or 4 columns from the window width. |
+| `useRoundCues(plan)` | The round's cues, fixed for the whole round. |
+| `useDebouncedCallback`, `useThrottleGate` | For search boxes and scroll signals. |
+| `useWindowKeydown`, `isTextField`, `hasModifier`, `IS_MAC` | Keyboard shortcuts that stay out of text fields. |
+| `useRovingList`, `usePopover`, `useElementSize`, `useNow`, `useLatest` | Small UI helpers. |
+
+The components draw no look of their own. See
+[Style the canvas](/guides/style-the-canvas).

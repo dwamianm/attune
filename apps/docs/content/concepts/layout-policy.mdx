@@ -1,0 +1,114 @@
+---
+title: The layout policy
+---
+
+# The layout policy
+
+The policy turns one round of judgments into a layout plan. It is code: the
+same judgments always give the same plan, and every number below is a
+constant in `@attuneui/core`. Bind it to your app once with
+`createPolicy`.
+
+```ts
+const POLICY = createPolicy({
+  catalog: CATALOG,
+  usage: (events, now) => panelUsage(events, now, { panelIds: CATALOG.panelIds, weight: (e) => eventWeight(e) }),
+  suggest: (input) => basicSuggestions(CATALOG, input.judgments),
+  relationFor: (anchor, panel, records) => basicRelation(anchor, panel, records, CATALOG.panels),
+});
+```
+
+| Option | What it gives |
+| --- | --- |
+| `usage` | Recent use per panel, 0 to 1 |
+| `suggest` | The round's suggestions, from the judgments and your data |
+| `relationFor` | The tag and reason of a linked panel, in your words |
+| `helpPanel` | The panel that opens when the user seems stuck. Absent: a hint only |
+| `modelName` | The model's name in panel reasons. Default "The model" |
+| `densityIgnores`, `habitWeight`, `habitReason`, `habitEvidence`, `suggestionEvidence`, `suggestionSignature` | Optional words and parts for richer apps |
+
+## Priority
+
+Each panel gets one priority: the model's relevance, the measured recent
+use, and the goal's affinity, blended by the weights
+(`relevance: 0.5, usage: 0.25, goal: 0.25` by default), plus 1 for a
+pinned panel (`PIN_BOOST`). The weights are settings: `store.setWeights()`
+changes them.
+
+## The mode
+
+The policy takes the model's layout choice when the model is sure (0.8,
+`MODE_SWITCH_CONFIDENCE`), or fairly sure (0.55) when the last two rounds
+chose it too. Otherwise the mode holds, with a reason in the change line.
+
+## Which panels show
+
+- A panel below 0.18 priority goes to the dock (`DOCK_BELOW_PRIORITY`),
+  with a band of 0.04 (`DOCK_MARGIN`) so a panel does not come and go on
+  the model's run-to-run drift.
+- A panel the policy brought in, or sent away, stays that way at least
+  30 s (`MEMBERSHIP_HOLD_MS`), unless the user uses it.
+- A panel the user sent to the dock stays there 3 minutes
+  (`DISMISS_HOLD_MS`), unless they pin it, open it, or a command asks
+  for it.
+- Pinned panels and panels the user made bigger always stay.
+- At least two panels stay on the canvas (`MIN_CANVAS_PANELS`).
+
+## Order and sizes
+
+The order follows priority with hysteresis: a lower panel must beat the
+one above it by 0.08 to swap (`ORDER_SWAP_MARGIN`), and a newcomer must
+beat a panel already on the canvas by 0.08 to take its seat
+(`INCUMBENT_BONUS`). Sizes come from the mode's slots:
+
+| Mode | Slots, in order |
+| --- | --- |
+| `focus` | hero, standard, standard, then compact |
+| `compare` | hero, hero, then compact |
+| `overview` | standard for every panel |
+
+A panel the user made bigger is the hero size. A pinned panel keeps its
+place in front.
+
+## Density
+
+The density (`guided`, `standard`, or `dense`) sets how many panels the
+canvas holds: 5, 7, or 9 (`DENSITY_CAPS`). It follows the model's
+expertise score, only when the model is sure (0.6), only after 5 events,
+and only when two rounds in a row agree, so one slow stretch does not
+shrink the canvas mid-task.
+
+## Help
+
+When the model judges the user is struggling at 0.55 or more
+(`HELP_HINT_AT`), the plan asks for a hint. At 0.7 (`HELP_PANEL_AT`) it
+opens your help panel in the second slot, where a stuck user sees it
+without losing the work they are stuck on.
+
+## Links
+
+When the user opens a record, the store asks your app (the `linked`
+option) which records in other panels belong to it. The policy gives up to
+three of those panels a relation (`LINKED_PANELS_MAX`): a tag ("Linked to
+T-201"), a tint on the linked rows, and 0.12 more priority
+(`LINK_PRIORITY_BOOST`). A linked panel is at least standard size, so its
+rows show. The model still decides: a panel it rates useless stays below
+the line.
+
+## Quiet panels
+
+A panel the model rates below 0.4 (`QUIET_BELOW`) two rounds in a row
+goes **quiet**: the canvas shows it faded, and smaller where that keeps
+the calm rules. It comes back above 0.5 (`QUIET_EXIT_ABOVE`), or at once
+when the user clicks into it. The anchor, linked panels, pinned and bigger
+panels, and anything used in the last minute never go quiet. The rule is
+`quietPanels` in `@attuneui/core`; an app turns it on through the store's
+`policyInput` hook (the demo does).
+
+## Decisions
+
+Every change comes with a `Decision`: its kind (mode, promote, demote,
+add, dock, suggest, help, hold, command, density) and a sentence, for
+example "Brought Macros onto the canvas" or "Kept the layout because the
+command was unclear". `ChangeLine` shows them, and each card has its
+`reason`.

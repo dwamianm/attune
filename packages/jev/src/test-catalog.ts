@@ -1,5 +1,5 @@
 /** A small catalog that is not the demo's, for the tests: a writing app with two panels. */
-import { defineCatalog, type Catalog, type GoalDef, type PanelDef } from "@attune/core";
+import { defineCatalog, type Catalog, type GoalDef, type PanelDef } from "@attuneui/core";
 
 export type P = "drafts" | "sources";
 export type G = "write" | "research" | "unclear";

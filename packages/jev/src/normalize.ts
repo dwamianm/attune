@@ -4,7 +4,7 @@
  * sent and the app's catalog, and throws a JevAnswerError on anything
  * missing or out of shape (answers.ts).
  */
-import { LAYOUT_MODES, PANEL_UNCLEAR, type Catalog, type CoreCommandJudgments, type CoreJudgments, type ScoreJudgment } from "@attune/core";
+import { LAYOUT_MODES, PANEL_UNCLEAR, type Catalog, type CoreCommandJudgments, type CoreJudgments, type ScoreJudgment } from "@attuneui/core";
 import { readChoice, readNoul, readScore, scoreLevels, type Answers, type QuestionMap } from "./answers.ts";
 import { CORE_QUESTION_IDS } from "./questions.ts";
 

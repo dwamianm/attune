@@ -4,7 +4,7 @@
  * command questions appear only when there is a command.
  */
 import { describe, expect, it } from "vitest";
-import { PANEL_UNCLEAR } from "@attune/core";
+import { PANEL_UNCLEAR } from "@attuneui/core";
 import { ACTION_IDS, GOAL_IDS, LAYOUT_MODES, PANEL_IDS } from "../shared/catalog.ts";
 import { CLIENT_NAMES } from "../shared/fixtures.ts";
 import { INVOICE_STATUS_ARGS, TIMEFRAME_ARGS, type AdaptRequest, type PrepRequest, type RecordCandidate, type TaskCandidate } from "../shared/types.ts";

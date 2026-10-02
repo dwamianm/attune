@@ -22,7 +22,7 @@ import { useShallow } from "zustand/react/shallow";
 import { backToList } from "../engine/contexts.ts";
 import { backToOn } from "../engine/focusAids.ts";
 import { useEngine } from "../engine/store.ts";
-import { usePopover, useWindowKeydown } from "@attune/react";
+import { usePopover, useWindowKeydown } from "@attuneui/react";
 import { flowKeyTaken } from "./UpNext.tsx";
 
 export function BackTo() {

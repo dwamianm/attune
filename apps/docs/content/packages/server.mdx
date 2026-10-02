@@ -1,0 +1,31 @@
+---
+title: "@attuneui/server"
+---
+
+# @attuneui/server
+
+Helpers for the server that holds the model key. The browser never calls
+the model directly; it calls this server, and these helpers keep anyone
+else from spending the key.
+
+```sh
+npm install @attuneui/server
+```
+
+| Export | What it does |
+| --- | --- |
+| `checkRequest(headers, { requireJson, edge? })` | Why a request is refused (`{ status, error }`), or `null`. Locally, only the app on this machine passes: a loopback host and origin. Deployed behind a CDN, only requests with the edge's shared secret header pass (`edge`). |
+| `createRateLimiter(max?, windowMs?)` | A function that says whether one more request is allowed: 8 per 2 s by default. |
+| `parseAdaptRequest(body)` | Checks an adapt request body and clips it: the version, the snapshot (at most 20 lines of at most 500 characters), and a command of at most 300 characters. |
+| `isLoopbackHost`, `EDGE_SECRET_HEADER` | The pieces of the check. |
+
+```ts
+const refused = checkRequest({ host, origin, contentType }, { requireJson: true });
+if (refused) return respond(refused.status, { error: refused.error });
+if (!allow()) return respond(429, { error: "Too many requests." });
+const parsed = parseAdaptRequest(body);
+if (!parsed.ok) return respond(400, { error: parsed.error });
+```
+
+It works with any server framework: the examples use Hono. See
+[The model server](/guides/model-server).

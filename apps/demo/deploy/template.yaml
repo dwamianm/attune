@@ -128,7 +128,7 @@ Resources:
     Properties:
       TargetFunctionArn: !GetAtt Api.Arn
       # Public URL, but the app refuses any request without CloudFront's
-      # x-origin-verify secret (EdgeAccess in @attune/server).
+      # x-origin-verify secret (EdgeAccess in @attuneui/server).
       AuthType: NONE
 
   ApiUrlPermission:

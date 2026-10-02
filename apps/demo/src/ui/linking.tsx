@@ -14,10 +14,9 @@ import { CLIENTS } from "../../shared/fixtures.ts";
 import type { AnchorRef, ItemKind } from "../../shared/types.ts";
 import type { LinkSet } from "../engine/contract.ts";
 import { useEngine } from "../engine/store.ts";
-import { roundCues, unstaged } from "@attune/core";
 import type { RoundCues } from "./choreography.ts";
 import { ITEM_KIND_ATTR, itemAttrs, LINK_ATTR, type LinkRole } from "./domHooks.ts";
-import { useLatest } from "@attune/react";
+import { useLatest, useRoundCues as useCanvasRoundCues } from "@attuneui/react";
 
 /**
  * The plan's anchor while it is still the live one. The anchor note and the
@@ -55,15 +54,7 @@ export function useWorkAnchorLive(): boolean {
  * starting layout, not a change.
  */
 export function useRoundCues(): RoundCues {
-  const plan = useEngine((s) => s.plan);
-  const round = plan.round ?? 0;
-  const [cues, setCues] = useState<RoundCues>(() => unstaged(round));
-  if (round !== cues.round) {
-    const next = roundCues(plan);
-    setCues(next);
-    return next;
-  }
-  return cues;
+  return useCanvasRoundCues(useEngine((s) => s.plan));
 }
 
 /**

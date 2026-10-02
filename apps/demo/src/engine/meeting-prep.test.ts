@@ -15,7 +15,7 @@ import type { AdaptRequest, AdaptResponse, GridCell, Judgments, PrepRequest, Pre
 import { postAdapt, postPrep } from "./api.ts";
 import { backToList } from "./contexts.ts";
 import { PREP_RECHECK_MS, PREP_TAG } from "./meetingPrep.ts";
-import { SIZE_RANK } from "@attune/core";
+import { SIZE_RANK } from "@attuneui/core";
 import { triggersRequest } from "./scheduler.ts";
 import { buildSnapshot } from "./snapshot.ts";
 import { DEFAULT_SETTINGS, useEngine } from "./store.ts";

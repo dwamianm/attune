@@ -10,7 +10,7 @@ import { useShallow } from "zustand/react/shallow";
 import type { Task } from "../../../shared/fixtures.ts";
 import { useEngine } from "../../engine/store.ts";
 import { daysUntil, formatDate, taskDueText } from "../format.ts";
-import { useNow } from "@attune/react";
+import { useNow } from "@attuneui/react";
 import { useItemProps } from "../linking.tsx";
 import {
   Button,

@@ -1,0 +1,55 @@
+---
+title: Style the canvas
+---
+
+# Style the canvas
+
+The canvas draws no look of its own: only the layout it needs (the grid
+tracks, each card's cell, the anchor above the cards moving around it).
+You style it with class names and these data attributes:
+
+| Attribute | On | Value |
+| --- | --- | --- |
+| `data-canvas` | The grid | |
+| `data-panel` | Each card | Its panel id |
+| `data-size` | Each card | `hero`, `large`, `standard`, or `compact` |
+| `data-anchor` | The live anchor's card | `"true"` |
+| `data-linked` | A card linked to the anchor | |
+| `data-change` | A card the round changed | `added`, `promoted`, or `demoted` |
+| `data-quiet` | A quiet card | `faded`, or `lit` while hovered or focused |
+| `data-front-ring` | A card just sent to the front | Shown for 1.2 s after it lands |
+| `data-ghost` | The empty slot of a docked card | |
+| `data-dock-id` | Each dock item | Its panel id |
+
+## One required rule
+
+A card leaving the grid is popped out of the flow while it flies to the
+dock. Its own grid lines would shift it by a cell first, so add:
+
+```css
+[data-canvas] > [data-motion-pop-id] {
+  grid-area: auto !important;
+}
+```
+
+## An example
+
+The playground's styles, in full, are in
+[`apps/playground/src/styles.css`](https://github.com/dwamianm/attune/blob/main/apps/playground/src/styles.css):
+
+```css
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; overflow: hidden; display: flex; flex-direction: column; }
+.card[data-anchor] { border-color: var(--accent); }
+.card[data-linked] { border-color: var(--link); }
+[data-ghost] { border: 1px dashed var(--line); border-radius: 12px; }
+```
+
+## Sizes and rows
+
+Each row track is 104 px (`rowHeight`), half a standard card. The spans
+per size, on 4 or 2 columns: hero 2 by 4 tracks, large 2 by 2, standard 1
+by 2, compact 1 by 1. On one column every card is one column wide, and the
+hero is the tallest. The column count follows the window: 1 below 768 px,
+2 below 1280 px, 4 above (`GRID_BREAKPOINTS`).
+
+A compact card has little room: show a summary there, not a list.

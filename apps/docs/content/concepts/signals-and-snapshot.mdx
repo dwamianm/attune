@@ -1,0 +1,99 @@
+---
+title: Signals and the snapshot
+---
+
+# Signals and the snapshot
+
+## Core signals
+
+Panels report what the user does with `track({ type, panel, detail })`.
+The library knows these core types (`CoreSignalType`):
+
+| Type | When | Useful detail |
+| --- | --- | --- |
+| `item_open` | The user opened one record | `itemKind`, `itemId`, `client`, `label` |
+| `search` | The user typed a search in a panel | `query` |
+| `filter` | The user changed a filter | `filter` or `label` |
+| `action` | The user did something with a record | `actionId`, `itemId`, `client` |
+| `command` | The user typed into the command bar | `query` (the store logs it) |
+| `panel_focus` | The user clicked or tabbed into a panel | `via` (the canvas logs it) |
+| `panel_dwell` | The pointer rested on a panel | `durationMs` (the canvas logs it) |
+| `panel_open`, `panel_dismiss` | A panel came from or went to the dock | |
+| `panel_pin`, `panel_unpin` | The user pinned or unpinned a panel | |
+| `panel_maximize`, `panel_restore` | "Make bigger" and "Make smaller" | |
+| `shortcut`, `scroll` | A keyboard shortcut, a list scroll | `key` |
+| `suggestion_accept`, `suggestion_dismiss` | A suggestion was taken or turned down | `actionId`, `label` |
+| `undo` | The user undid a layout change | |
+
+`detail.via` says how the user did it: `"pointer"`, `"keyboard"`,
+`"command"`, or `"suggestion"`. Work from a suggestion or a command does
+not move the anchor.
+
+The store's actions (`pin`, `dismiss`, `open`, `maximize`,
+`acceptSuggestion`, `runCommand`, and others) log their own events, so a
+panel only tracks what happens inside it.
+
+## Your own event types
+
+An app can log types of its own, for example `"up_next_open"`. Say how
+they count with a `SignalProfile`:
+
+```ts
+import { signalProfile } from "@attuneui/core";
+
+export const SIGNAL_PROFILE = signalProfile<SignalType>({
+  recordOpen: ["up_next_open", "task_start"],
+  work: ["up_next_open", "task_start"],
+  pointer: ["up_next_open", "task_start"],
+  cueOnly: ["setting_change"],
+});
+```
+
+`recordOpen` types open one record, `work` types mean "the user works in
+this panel", `pointer` types are done with the pointer, and `cueOnly`
+types are logged but never reach the model. Give the profile and your own
+sentences (`describe`) to the store.
+
+## Recent use
+
+`panelUsage` measures how much each panel was used lately. Each event's
+weight halves every 90 seconds (`USAGE_HALF_LIFE_MS`), and the busiest
+panel is 1. `CORE_USAGE_WEIGHTS` and `eventWeight` give the core types
+their weights: opening a record or an action counts 3, a search or a
+filter 2.5, a focus 1, a pointer rest by its length.
+
+## The snapshot
+
+The model reads the activity in words. `buildSnapshot` writes the
+`InteractionSnapshot`:
+
+- **`recent_activity`**: the last events as sentences, oldest first, at
+  most 15, with repeats collapsed. For example "Opened ticket T-201 in
+  Tickets" or "Searched Articles for "reset"".
+- **`current_focus`**: the focused panel, and what it shows.
+- **`visible_panels`**: the titles on screen.
+- **`behavior_observations`**: facts code measured, in words.
+
+The observations are where code does the counting, because a model cannot
+count:
+
+- "The searches keep repeating the same word"
+- A search phrased as a how-to question
+- A record opened again and again without acting on it
+- A panel sent back to the dock right after it opened
+- Switching back and forth between two panels
+- Opening the help panel, turning down suggestions, an undo
+- Keyboard or pointer use, and the pace of the work
+- "Only one action so far", or no activity for a few minutes
+
+The app gives its words for the sentences (`EventWords`): the panel
+titles, what its record kinds are called, and its actions in the past
+tense.
+
+```ts
+const WORDS: EventWords<PanelId> = {
+  panels: CATALOG.panels,
+  itemWords: { ticket: "ticket", customer: "customer", article: "help article", macro: "saved reply" },
+  actionPast: (actionId, d) => (actionId === "reply_ticket" ? `Replied to ticket ${d.itemId}` : "Took an action"),
+};
+```
