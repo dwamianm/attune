@@ -8,9 +8,9 @@ import { Callout, Steps } from "nextra/components";
 
 This page builds a small adaptive app: a help desk with four panels. The
 code is the [playground](/examples)'s, shortened. An Attune app has four
-parts: a **catalog** (its vocabulary), a **policy** (bound once), a
-**store** (the adaptive loop), and a **canvas** (the UI). A small server
-asks the model.
+parts: a **catalog** (its vocabulary), a **store** (the adaptive loop),
+a **canvas** (the UI), and a small server that asks the model. The starting
+API supplies a standard policy; you can customize it later.
 
 <Steps>
 
@@ -75,68 +75,52 @@ export const CATALOG = defineCatalog<PanelId, GoalId, ActionId>({
 Two ids are fixed: the goal `"unclear"` and the action `"none"`. Every
 model question needs a way to say "no match". See [The catalog](/concepts/catalog).
 
-### Bind the policy
+### Create the workspace
 
-`createPolicy` binds the layout policy to your catalog once. The app gives
-three things: how much each event counts as recent use, its suggestions,
-and the words of a link tag. The basic helpers are enough to start.
-
-```ts filename="engine.ts"
-import { basicRelation, basicSuggestions, createPolicy, eventWeight, panelUsage, type CoreSuggestion, type PolicyInput } from "@attuneui/core";
-import { CATALOG, type ActionId, type GoalId, type PanelId, type RecordKind } from "./catalog";
-
-type Suggestion = CoreSuggestion<ActionId>;
-type Input = PolicyInput<PanelId, GoalId, ActionId, Suggestion, RecordKind>;
-
-export const POLICY = createPolicy<PanelId, GoalId, ActionId, Suggestion, RecordKind, { next: Partial<Record<PanelId, number>> }, Input, undefined>({
-  catalog: CATALOG,
-  usage: (events, now) => panelUsage(events, now, { panelIds: CATALOG.panelIds, weight: (e) => eventWeight(e) }),
-  suggest: (input) => basicSuggestions(CATALOG, input.judgments),
-  relationFor: (anchor, panel, records) => basicRelation(anchor, panel, records, CATALOG.panels),
-  modelName: "Jev",
-});
-```
-
-### Create the store
-
-The store is the adaptive loop. Give it your types in one `AdaptiveSpec`,
-the catalog, the policy, your words for the snapshot, and a `send`
-function that calls your server.
+Start with `createAdaptiveWorkspace`. It infers your panel and goal IDs from
+the catalog and supplies the standard policy, usage weights, suggestions,
+and link labels. Your app supplies a transport and, optionally, record links.
 
 ```ts filename="engine.ts"
-import { createAdaptiveStore, type AdaptiveRequest, type AdaptiveResponse, type AdaptiveSpec } from "@attuneui/core";
-import type { RoundJudgments } from "@attuneui/jev";
+import { createAdaptiveWorkspace, type AdaptiveRequest, type AdaptiveResponse, type JudgmentsWithCommand } from "@attuneui/core";
+import { CATALOG, type PanelId, type GoalId, type ActionId } from "./catalog";
 
-export type Judgments = RoundJudgments<PanelId, GoalId, ActionId>;
+export type Judgments = JudgmentsWithCommand<PanelId, GoalId, ActionId>;
 
-export interface DeskSpec extends AdaptiveSpec {
-  panel: PanelId;
-  goal: GoalId;
-  action: ActionId;
-  kind: RecordKind;
-  judgments: Judgments;
-  policyExtra: undefined;
-}
-
-async function postAdapt(request: AdaptiveRequest, opts: { signal: AbortSignal }): Promise<AdaptiveResponse<Judgments>> {
-  const res = await fetch("/api/adapt", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(request), signal: opts.signal });
+async function postAdapt(request: AdaptiveRequest, { signal }: { signal: AbortSignal }): Promise<AdaptiveResponse<Judgments>> {
+  const res = await fetch("/api/adapt", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(request), signal });
   if (!res.ok) throw new Error(`The server answered ${res.status}`);
   return res.json();
 }
 
-export const store = createAdaptiveStore<DeskSpec>({
+export const store = createAdaptiveWorkspace({
   catalog: CATALOG,
-  policy: POLICY,
-  words: { panels: CATALOG.panels, itemWords: { ticket: "ticket", customer: "customer", article: "help article", macro: "saved reply" } },
   send: postAdapt,
-  // Records in other panels joined to the one the user opened: these become the link tags and tints.
-  linked: (anchor) => linkedRecords(anchor),
+  words: { itemWords: { ticket: "ticket", customer: "customer", article: "help article", macro: "saved reply" } },
 });
 ```
 
-`linkedRecords` is your own join, for example "the same customer's
-tickets". The playground's is in
-[`src/engine.ts`](https://github.com/dwamianm/attune/blob/main/apps/playground/src/engine.ts).
+To link related records, pass `linked: linkedRecords`. This is your data join,
+for example a ticket's customer and help article. The typed implementation in
+[the playground](https://github.com/dwamianm/attune/blob/main/apps/playground/src/engine.ts)
+uses the same starting API.
+
+Density starts at `"standard"`. Your app can offer these choices:
+
+```ts
+store.setSettings({ layoutBehavior: "suggestions" }); // Assistance updates; panels stay in place.
+store.setSettings({ layoutBehavior: "adaptive" });   // Let the layout adapt again.
+store.setSettings({ density: "guided" });            // A saved user preference wins over inferred expertise.
+store.setSettings({ density: "auto" });              // Explicitly allow automatic density.
+```
+
+The library keeps settings in memory; persist them with the `persist` hook
+and pass restored values through `settings`. The demo shows one implementation.
+For a custom policy or additional application state, use `createPolicy` and
+`createAdaptiveStore` directly. See [Extend the loop](/guides/extend-the-loop).
+
+You can mount the canvas inside one existing page. Keep your app's navigation
+and adapt only the workspace region that benefits from related records.
 
 ### Report what the user does
 

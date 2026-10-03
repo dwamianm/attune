@@ -24,3 +24,4 @@ export * from "./snapshot.ts";
 export * from "./suggestions.ts";
 export * from "./usage.ts";
 export * from "./words.ts";
+export * from "./workspace.ts";

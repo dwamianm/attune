@@ -168,7 +168,7 @@ Each step keeps `pnpm test` green and the demo working.
    overlay slot. The link lines, the anchor note, the links bar, and the
    "Why here?" popover stay the demo's: they read its link set and words.
 8. **A second app.** Done: `apps/playground`, a help desk with four panels
-   of its own, built only from the packages on `createAdaptiveStore` and
+   of its own, built only from the packages on `createAdaptiveWorkspace` and
    `useAdaptive`, with its own Jev server. It ran live with Jev. Building it
    added to the library: `CORE_USAGE_WEIGHTS` and `eventWeight`,
    `basicSuggestions` and `basicRelation`, the calm fallback

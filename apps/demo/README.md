@@ -25,6 +25,27 @@ Two parts share the work:
 The demo data is "Fernhill Studio", a fictional six-person design studio
 (`shared/fixtures.ts`). All names and companies are invented.
 
+## Introduction and walkthrough
+
+The full first-visit introduction remains available through **About**.
+Visitors can immediately choose **Explore on my own** or **Guide me**, or
+press Escape. The optional six-step guide follows real sample data: read
+Priya's message, open INV-1042, resend it, then finish the related task.
+It explains record links, the current source of assistance, and user control.
+It observes actual selections and actions, never fabricates a model response,
+and sends no email. **Show me where**, **Skip step**, **Back**, **End tour**,
+and replay from the header keep the user in control.
+
+**Focus → Workspace behavior** offers Full adaptation, Suggestions only, and
+Fixed workspace. Suggestions only preserves the arrangement while assistance
+updates. Explicit panel controls and commands remain available. **Display
+density** defaults to Comfortable and stays a user preference unless they choose
+Let Attune adjust. These settings persist in this browser. The Inspector keeps
+the model's raw confidence values; normal suggestions use plain explanations.
+
+See [the user-trial protocol](../../docs/usability-study.md) before making claims
+about task speed or reduced effort.
+
 ## Run it
 
 Requirements: Node 20.19 or newer, or 22.12 or newer (the versions Vite 8
@@ -41,7 +62,7 @@ pnpm 10.
 
 The key stays in the Node server. The browser only talks to `/api`, which Vite
 proxies to the server. Without a key the app still runs: the server answers with
-a labeled heuristic, and the header shows "Offline with heuristic" (a real Jev
+a labeled heuristic, and the header shows "Demo rules" (a real Jev
 failure shows "Error" instead).
 
 If port 8790 is taken, set `PORT` in the shell or in `.env` (not `.env.local`:
@@ -191,7 +212,7 @@ UI signals            clicks, searches, filters, pointer rests, shortcuts, comma
 | `rel_<panel>` (10) | Score, 4 levels | How useful is this panel for what the user is working on? (No repeated evidence block, to save tokens) | The relevance part of each panel's priority |
 | `struggling` | Noul | Is the user stuck? | Help hint at 0.55 or more, Guide panel at 0.7 or more |
 | `layout` | Choice: focus, compare, overview | Which arrangement fits the work? | Layout mode, with hysteresis |
-| `expertise` | Score, 3 levels | Still finding their way, comfortable, or expert? | Density: guided (at most 5 panels, with example commands in the empty suggestion row), standard (7), or dense (9), within the mode's slot count |
+| `expertise` | Score, 3 levels | Still finding their way, comfortable, or expert? | When the user opts into automatic density: guided (at most 5 panels, with example commands), standard (7), or dense (9), within the mode's slot count |
 | `next_action` | Choice over actions plus "none" | What will the user likely do next? | Primary or subtle suggestion |
 | `target_client` | Choice over client names plus "none" | Which client is the work about? | Fills the suggestion's client and invoice |
 | `next_record` | Choice over the client's record candidates (at most 12, each described by its label, kind, panel, client, and code hint) plus "none" | Which record will the user open or work on next, after what they are looking at now? | The "Up next" card, when Jev is sure enough: 0.5 or more, or 0.4 or more with a clear lead and little on "none" (`confidentRecord` in `src/engine/nextUp.ts`) |
@@ -280,7 +301,7 @@ bound to the demo in `src/engine/policy.ts`:
   panel the user made bigger is always the hero (see Make a panel bigger).
 - **Mode hysteresis.** Switch when layout confidence is 0.8 or more, or 0.55 or
   more when the last two rounds judged the same mode.
-- **Density** changes only with expertise confidence of 0.6 or more, after at
+- **Density** defaults to the user's chosen Comfortable setting. When they choose Let Attune adjust, it changes only with expertise confidence of 0.6 or more, after at
   least 5 events, and when two rounds in a row judged the same density.
 - **Help.** A tip banner at struggling 0.55, the Guide at 0.7. The Guide goes in
   the second slot (after pins) at standard size. If the user docked the Guide

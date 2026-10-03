@@ -8,7 +8,7 @@ The short version:
 
 1. Install `@attuneui/core`, `@attuneui/react`, `motion`, and `react` in the browser app, and `@attuneui/core`, `@attuneui/jev`, `@attuneui/server`, and `@typesafe-ai/sdk@0.6.0` on the server. The packages are ESM only and need React 19, motion 13, and Node 20.19 or newer.
 2. Write a catalog with `defineCatalog`: the panels, the goals (including `"unclear"`), the actions (including `"none"` with `panel: null`), and the goal-to-panel affinity.
-3. Bind the policy once with `createPolicy` (`panelUsage`, `basicSuggestions`, `basicRelation` are enough to start), and create the store with `createAdaptiveStore`, typed by an interface that extends `AdaptiveSpec`. Its `send` posts the request to your own server route.
+3. Call `createAdaptiveWorkspace({ catalog, send })`. It supplies the standard policy and infers IDs; add `words` and `linked` for your record vocabulary and joins. Its `send` posts to your own server route. Use `createAdaptiveStore` and `createPolicy` for advanced customization.
 4. Call `store.track()` with the core signal types (`item_open`, `search`, `filter`, `action`) from inside the panels.
 5. Render `AdaptiveCanvas` with `useStoreCanvas(store)` and a `renderCard` function, plus `Dock` and `ChangeLine`. Add the CSS rule `[data-canvas] > [data-motion-pop-id] { grid-area: auto !important; }`.
 6. On the server: `checkRequest`, `createRateLimiter`, and `parseAdaptRequest` from `@attuneui/server`, then `buildRound`, `askJev`, and `readRound` from `@attuneui/jev`, with `neutralJudgments` from `@attuneui/core` as the fallback.

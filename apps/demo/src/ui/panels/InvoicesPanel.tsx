@@ -226,7 +226,7 @@ function InvoiceActions({ inv, perform }: { inv: Invoice; perform: Perform }) {
         </Button>
       ) : null}
       {canRemind ? (
-        <Button icon={Send} step={resendStep} onClick={() => perform("resend_invoice", { client: inv.client, invoiceId: inv.id })}>
+        <Button data-guide-resend={inv.id} icon={Send} step={resendStep} onClick={() => perform("resend_invoice", { client: inv.client, invoiceId: inv.id })}>
           Resend
         </Button>
       ) : null}

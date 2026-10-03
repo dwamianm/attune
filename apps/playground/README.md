@@ -26,15 +26,16 @@ still, Customers and Articles get "Linked to T-201" with Larkspur Bakery and
 | --- | --- | --- |
 | `src/catalog.ts` | Panels, goals, next steps, goal-to-panel affinity | `defineCatalog` |
 | `src/data.ts` | Tickets, customers, articles, macros | none |
-| `src/engine.ts` | Words, links between records, the policy, the store | `createPolicy`, `basicSuggestions`, `basicRelation`, `panelUsage`, `eventWeight`, `createAdaptiveStore` |
+| `src/engine.ts` | Words, links between records, the store | `createAdaptiveWorkspace` |
 | `src/App.tsx`, `src/panels.tsx` | The page, each card's header, and the four panels | `AdaptiveCanvas`, `Dock`, `ChangeLine`, `useStoreCanvas`, `useAdaptive`, `useDebouncedCallback`, `matchesQuery` |
 | `server/app.ts` | `/api/health` and `/api/adapt` | `checkRequest`, `createRateLimiter`, `parseAdaptRequest`, `buildRound`, `readRound`, `askJev`, `neutralJudgments` |
 | `server/index.ts` | Starts the server | `createRealtimeJevClient` |
 
-The whole app is about 750 lines. About 320 are the app's own vocabulary,
-data, words, links, and server (catalog, data, engine, server); about 430
-are UI (App, panels, styles). None of it is adaptive logic: that is all in
-the packages.
+The app owns its vocabulary, data joins, transport and UI.
+`createAdaptiveWorkspace` supplies the standard policy and infers the catalog
+types. The adaptive logic stays in the packages; there is no local policy
+factory to wire up. Mounting the canvas in an existing page lets an app adopt
+it for one workflow first.
 
 ## What building it showed
 

@@ -264,6 +264,22 @@ describe("Prepare", () => {
     expect(engine().links?.relations.inbox?.records.map((r) => r.itemId)).toEqual(["m-1"]);
   });
 
+  it("keeps a prepared layout when a late ranking lands in suggestions-only mode", async () => {
+    let answer!: (r: PrepResponse) => void;
+    mockedPrep.mockImplementation(() => new Promise<PrepResponse>((resolve) => { answer = resolve; }));
+    clockAt(12.5);
+    await recheck();
+    engine().prepareMeeting("pointer");
+    engine().setSettings({ layoutBehavior: "suggestions" });
+    const before = engine().plan;
+    const req = mockedPrep.mock.calls[0][0];
+    answer(prepResponse(req, HARBOR_SHARES, 0.91));
+    await flush();
+    expect(engine().prep?.urgent?.count).toBe(1);
+    expect(engine().plan.grid?.cells).toEqual(before.grid?.cells);
+    expect(engine().plan.placements.map(({ id, size }) => ({ id, size }))).toEqual(before.placements.map(({ id, size }) => ({ id, size })));
+  });
+
   it("writes the meeting notes heading and opens Notes only when the user presses Start meeting notes", async () => {
     await offered();
     engine().setNotes("Call Priya");

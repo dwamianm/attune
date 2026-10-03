@@ -80,6 +80,24 @@ afterEach(() => {
 });
 
 describe("engine store", () => {
+  it("keeps every panel cell in suggestions-only mode despite linked records and later model rounds", async () => {
+    engine().setColumns(4); // The canvas establishes its grid on mount.
+    engine().setSettings({ layoutBehavior: "suggestions" });
+    const before = engine().plan;
+    engine().track({ type: "item_open", panel: "inbox", detail: { itemKind: "message", itemId: "m-1", client: "Harbor Coffee Co.", via: "pointer" } });
+    await vi.advanceTimersByTimeAsync(30_000);
+    engine().track({ type: "item_open", panel: "invoices", detail: { itemKind: "invoice", itemId: "INV-1042", client: "Harbor Coffee Co.", via: "pointer" } });
+    await vi.advanceTimersByTimeAsync(30_000);
+    const after = engine().plan;
+    expect(mockedPost).toHaveBeenCalled();
+    expect(after.grid?.cells).toEqual(before.grid?.cells);
+    expect(after.placements.map(({ id, size }) => ({ id, size }))).toEqual(before.placements.map(({ id, size }) => ({ id, size })));
+    expect(after.docked).toEqual(before.docked);
+    expect(after.mode).toBe(before.mode);
+    engine().pin("invoices");
+    expect(engine().plan.grid?.cells.invoices).toMatchObject({ row: 0, col: 0 });
+  });
+
   it("starts with the traditional layout and fresh data", () => {
     expect(engine().plan).toEqual(defaultPlan());
     expect(engine().data.invoices.find((i) => i.id === "INV-1042")?.remindersSent).toBe(1);

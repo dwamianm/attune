@@ -10,7 +10,7 @@
  * fixed times.
  *
  * Keyboard: Tab reaches the gear, Enter or Space opens the dialog with focus
- * on the first switch, Tab moves through the switches, and Escape (or a
+ * on the workspace behavior control, Tab moves through the controls, and Escape (or a
  * click outside) closes it and puts focus back on the gear. Tabbing out of
  * the dialog closes it too. While it is open, "n" and "b" do nothing
  * (flowKeyTaken sees the open dialog).
@@ -29,13 +29,13 @@ export function FocusSettings() {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   const baseId = useId();
-  const { aids, setFocusAid, simulateMeeting } = useEngine(
-    useShallow((s) => ({ aids: s.settings.focusAids, setFocusAid: s.setFocusAid, simulateMeeting: s.simulateMeeting })),
+  const { settings, aids, setSettings, setFocusAid, simulateMeeting } = useEngine(
+    useShallow((s) => ({ settings: s.settings, aids: s.settings.focusAids, setSettings: s.setSettings, setFocusAid: s.setFocusAid, simulateMeeting: s.simulateMeeting })),
   );
 
-  // Opening puts focus on the first switch, so the keyboard is already inside.
+  // Opening puts focus on the first control, so the keyboard is already inside.
   useEffect(() => {
-    if (open) boxRef.current?.querySelector<HTMLElement>('[role="switch"]')?.focus();
+    if (open) boxRef.current?.querySelector<HTMLElement>('select, [role="switch"]')?.focus();
   }, [open]);
 
   // A press anywhere else closes it (the press itself still does its job).
@@ -93,11 +93,45 @@ export function FocusSettings() {
           id={`${baseId}-dialog`}
           role="dialog"
           aria-labelledby={`${baseId}-title`}
-          className="absolute top-full right-4 left-4 z-40 mt-2 rounded-xl border border-line bg-surface p-2 text-ink shadow-pop sm:right-0 sm:left-auto sm:w-[22rem]"
+          className="absolute top-full right-4 left-4 z-40 mt-2 max-h-[75dvh] overflow-y-auto rounded-xl border border-line bg-surface p-2 text-ink shadow-pop sm:right-0 sm:left-auto sm:w-[22rem]"
         >
           <p id={`${baseId}-title`} className="px-2 pt-1 pb-1.5 text-2xs font-medium tracking-wide text-ink-3 uppercase">
-            Focus aids
+            Your workspace
           </p>
+          <div className="mb-2 grid gap-3 border-b border-line px-2 pb-3">
+            <label className="grid gap-1.5 text-sm font-medium">
+              Workspace behavior
+              <select
+                value={!settings.adaptive ? "fixed" : settings.frozen ? "paused" : settings.layoutBehavior ?? "adaptive"}
+                onChange={(e) => setSettings({ adaptive: e.target.value !== "fixed", frozen: false, layoutBehavior: e.target.value === "suggestions" ? "suggestions" : "adaptive" })}
+                className="h-9 w-full rounded-lg border border-line bg-surface-2 px-2 text-sm font-normal"
+                aria-describedby={`${baseId}-behavior`}
+              >
+                <option value="adaptive">Full adaptation</option>
+                <option value="suggestions">Suggestions only</option>
+                <option value="fixed">Fixed workspace</option>
+                {settings.frozen && <option value="paused">Paused in Inspector</option>}
+              </select>
+            </label>
+            <p id={`${baseId}-behavior`} className="text-xs leading-relaxed text-ink-2">
+              {!settings.adaptive ? "Arrange the workspace yourself. Automatic assistance is off."
+                : settings.frozen ? "Automatic changes are paused. Choose a behavior to resume."
+                : settings.layoutBehavior === "suggestions" ? "Suggestions update while panels keep their places. Commands and your panel controls still work."
+                : "Related panels can move, resize, and appear as you work. Your current panel stays anchored."}
+            </p>
+            <label className="grid gap-1.5 text-sm font-medium">
+              Display density
+              <select value={settings.density ?? "standard"} onChange={(e) => setSettings({ density: e.target.value as "guided" | "standard" | "dense" | "auto" })} className="h-9 w-full rounded-lg border border-line bg-surface-2 px-2 text-sm font-normal">
+                <option value="guided">Spacious</option>
+                <option value="standard">Comfortable</option>
+                <option value="dense">Compact</option>
+                <option value="auto">Let Attune adjust</option>
+              </select>
+            </label>
+            <p className="text-xs text-ink-2">Your choices are saved in this browser.</p>
+          </div>
+          <p className="px-2 pb-1 text-2xs font-medium tracking-wide text-ink-3 uppercase">Focus aids</p>
+          {settings.adaptive && settings.layoutBehavior === "suggestions" && <p className="px-2 pb-2 text-xs text-ink-2">Automatic fading, shrinking, and rearranging wait until Full adaptation is on.</p>}
           <ul className="space-y-0.5">
             {FOCUS_AID_IDS.map((id) => {
               const on = aids[id];

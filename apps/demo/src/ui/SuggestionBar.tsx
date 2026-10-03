@@ -107,10 +107,9 @@ export function NextStepLabel({ compact }: { compact: boolean }) {
  * lives here, not in a chip, so "." works however the row shows the chip.
  */
 export function useSuggestionEntries(): { entries: AssistEntry[]; hint: ReactNode | null } {
-  const { suggestions, source, density, acceptSuggestion, dismissSuggestion, track, runCommand } = useEngine(
+  const { suggestions, density, acceptSuggestion, dismissSuggestion, track, runCommand } = useEngine(
     useShallow((s) => ({
       suggestions: s.plan.suggestions,
-      source: s.last?.source ?? null,
       density: s.plan.density,
       acceptSuggestion: s.acceptSuggestion,
       dismissSuggestion: s.dismissSuggestion,
@@ -118,7 +117,6 @@ export function useSuggestionEntries(): { entries: AssistEntry[]; hint: ReactNod
       runCommand: s.runCommand,
     })),
   );
-  const judge = source === "heuristic" ? "Heuristic" : "Jev";
 
   useWindowKeydown((e) => {
     if (e.key !== "." || hasModifier(e) || isTextField(e.target)) return;
@@ -148,7 +146,12 @@ export function useSuggestionEntries(): { entries: AssistEntry[]; hint: ReactNod
     const isPrimary = s.prominence === "primary";
     // A follow-up comes from code matching the step just done, and a habit step from the user's habits (focus aid 3), not from a judge.
     // "Start meeting notes" is focus aid 4's offer after Prepare, not a judged step either.
-    const badge = s.task ? "Follow-up" : s.habit ? "Habit" : s.meetingNotes ? "Meeting" : `${judge} ${Math.round(s.confidence * 100)}%`;
+    const badge = s.task ? "Follow-up" : s.habit ? "Habit" : s.meetingNotes ? "Meeting" : "Suggested";
+    const reason = s.task ? "Follows the step you just completed."
+      : s.habit ? "Based on your recent habits in this browser."
+      : s.meetingNotes ? "Related to the meeting you are preparing for."
+      : s.nextStep ? "Related to the record you opened."
+      : "Suggested from your recent activity. Open Inspector for the evidence.";
     const accept = () => {
       acceptSuggestion(s);
       if (s.meetingNotes) focusNotesEnd();
@@ -160,7 +163,7 @@ export function useSuggestionEntries(): { entries: AssistEntry[]; hint: ReactNod
           "flex h-8 min-w-0 items-center rounded-full text-sm",
           isPrimary ? "bg-accent text-accent-fg shadow-card" : "border border-line bg-surface text-ink-2",
         )}
-        title={s.reason}
+        title={reason}
       >
         <button
           type="button"
@@ -202,11 +205,11 @@ export function useSuggestionEntries(): { entries: AssistEntry[]; hint: ReactNod
       icon: Sparkles,
       tone: isPrimary ? "primary" : "subtle",
       text: s.label,
-      detail: `${badge} · ${s.reason}`,
-      tip: `${s.label} (${badge}). ${s.reason}`,
+      detail: `${badge} · ${reason}`,
+      tip: `${s.label} (${badge}). ${reason}`,
       short: s.label,
       ...(isPrimary ? { hotkey: "." as const } : {}),
-      primary: { label: "Accept", name: `Accept: ${s.label}, ${badge}`, title: s.reason, run: accept },
+      primary: { label: "Accept", name: `Accept: ${s.label}, ${badge}`, title: reason, run: accept },
       dismiss: { label: "Dismiss", name: `Dismiss suggestion: ${s.label}`, run: () => dismissSuggestion(s) },
       full,
     };

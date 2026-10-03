@@ -155,6 +155,8 @@ export interface PolicyInput<
    * agree. Omitted: the one-round rule.
    */
   recentDensities?: Density[];
+  /** An explicit user preference takes precedence over inferred expertise. */
+  density?: Density;
   /** Changes the user undid. Not repeated while the judgments stay the same. */
   avoid?: { mode?: LayoutMode; add?: P[]; dock?: P[] };
   /**
@@ -672,7 +674,7 @@ export function createPolicy<
       };
     }
     // Pointer rests are passive, and a saved working context, a task marked done, or a prep offer is the engine's own note, not the user's.
-    const density = pickDensity(
+    const density = input.density ?? pickDensity(
       previous.density,
       j.expertise,
       events.filter((e) => e.type !== "panel_dwell" && !(config.densityIgnores?.has(e.type) ?? false)).length,

@@ -11,6 +11,7 @@ import { Canvas } from "./ui/Canvas.tsx";
 import { CommandBar } from "./ui/CommandBar.tsx";
 import { Dock } from "./ui/Dock.tsx";
 import { Header } from "./ui/Header.tsx";
+import { GuidedTour } from "./ui/GuidedTour.tsx";
 import { HelpHint } from "./ui/HelpHint.tsx";
 import { Notice } from "./ui/Notice.tsx";
 import { useHeldWhile, useWorkAnchorLive } from "./ui/linking.tsx";
@@ -64,6 +65,7 @@ export function App() {
         <main className="mx-auto w-full max-w-[1600px] px-4 pt-4 pb-32 md:px-6">
           <h1 className="sr-only">Attune workspace</h1>
           <div className="flex flex-col gap-3">
+            <GuidedTour />
             <CommandBar />
             {/* One line whatever it shows: the prep card, Up next, and the suggestions never push the canvas down. */}
             <AssistRow />

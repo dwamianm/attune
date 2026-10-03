@@ -163,7 +163,6 @@ export function CommandBar() {
                     className="inline-flex h-7 items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 text-xs font-medium text-ink hover:border-accent/40 hover:bg-accent-soft"
                   >
                     {o.label}
-                    <span className="text-2xs font-normal text-ink-3 tabular-nums">{Math.round(o.probability * 100)}%</span>
                   </button>
                 ))
               : null}

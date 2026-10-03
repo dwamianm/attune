@@ -1,23 +1,11 @@
-/**
- * The playground's adaptive engine, built only from the library: the policy
- * (createPolicy) with the basic suggestions and link tags, and the loop
- * (createAdaptiveStore). The only app code here is the vocabulary, the words,
- * and how records link (by customer, and a ticket to its help article).
- */
+/** The help desk uses the starting API with its vocabulary, transport and record links. */
 import {
-  basicRelation,
-  basicSuggestions,
-  createAdaptiveStore,
-  createPolicy,
-  eventWeight,
-  panelUsage,
+  createAdaptiveWorkspace,
   type AdaptiveRequest,
   type AdaptiveResponse,
-  type AdaptiveSpec,
   type AnchorRef,
   type CoreSuggestion,
   type EventWords,
-  type PolicyInput,
   type RelatedRecord,
 } from "@attuneui/core";
 import type { RoundJudgments } from "@attuneui/jev";
@@ -26,16 +14,6 @@ import { ARTICLES, CUSTOMERS, TICKETS } from "./data.ts";
 
 export type Judgments = RoundJudgments<PanelId, GoalId, ActionId>;
 export type Suggestion = CoreSuggestion<ActionId>;
-
-/** The help desk's types for the library loop. */
-export interface DeskSpec extends AdaptiveSpec {
-  panel: PanelId;
-  goal: GoalId;
-  action: ActionId;
-  kind: RecordKind;
-  judgments: Judgments;
-  policyExtra: undefined;
-}
 
 export const WORDS: EventWords<PanelId> = {
   panels: CATALOG.panels,
@@ -47,16 +25,6 @@ export const WORDS: EventWords<PanelId> = {
     return "Took an action";
   },
 };
-
-type Input = PolicyInput<PanelId, GoalId, ActionId, Suggestion, RecordKind>;
-
-export const POLICY = createPolicy<PanelId, GoalId, ActionId, Suggestion, RecordKind, { next: Partial<Record<PanelId, number>> }, Input, undefined>({
-  catalog: CATALOG,
-  usage: (events, now) => panelUsage(events, now, { panelIds: CATALOG.panelIds, weight: (e) => eventWeight(e) }),
-  suggest: (input) => basicSuggestions(CATALOG, input.judgments),
-  relationFor: (anchor, panel, records) => basicRelation(anchor, panel, records, CATALOG.panels),
-  modelName: "Jev",
-});
 
 /** Records in other panels linked to the anchor: the same customer's tickets and record, and a ticket's help article. */
 export function linkedRecords(anchor: AnchorRef<PanelId, RecordKind>): Partial<Record<PanelId, RelatedRecord<RecordKind>[]>> {
@@ -83,12 +51,11 @@ export async function postAdapt(request: AdaptiveRequest, opts: { signal: AbortS
 }
 
 export function createDeskStore(send: (request: AdaptiveRequest, opts: { signal: AbortSignal }) => Promise<AdaptiveResponse<Judgments>> = postAdapt) {
-  return createAdaptiveStore<DeskSpec>({
+  return createAdaptiveWorkspace({
     catalog: CATALOG,
-    policy: POLICY,
     words: WORDS,
     send,
-    linked: (anchor) => linkedRecords(anchor),
+    linked: linkedRecords,
     // Short names for the link tags: a ticket's id, a customer's name, an article's title.
     anchorLabel: (ref) =>
       ref.itemKind === "ticket"

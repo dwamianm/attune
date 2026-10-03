@@ -17,34 +17,30 @@ npm install @attuneui/core
 ```
 
 ```ts
-import { basicRelation, basicSuggestions, createAdaptiveStore, createPolicy, defineCatalog, eventWeight, panelUsage, type AdaptiveSpec } from "@attuneui/core";
+import { createAdaptiveWorkspace, defineCatalog } from "@attuneui/core";
 
-const CATALOG = defineCatalog({ panelIds, panels, goalIds, goals, actionIds, actions, goalPanelAffinity });
-
-interface MySpec extends AdaptiveSpec {
-  panel: PanelId;
-  goal: GoalId;
-  action: ActionId;
-  policyExtra: undefined;
-}
-
-const POLICY = createPolicy({
-  catalog: CATALOG,
-  usage: (events, now) => panelUsage(events, now, { panelIds: CATALOG.panelIds, weight: (e) => eventWeight(e) }),
-  suggest: (input) => basicSuggestions(CATALOG, input.judgments),
-  relationFor: (anchor, panel, records) => basicRelation(anchor, panel, records, CATALOG.panels),
-});
-
-const store = createAdaptiveStore<MySpec>({
-  catalog: CATALOG,
-  policy: POLICY,
-  words: { panels: CATALOG.panels, itemWords: { ticket: "ticket" } },
-  send: (request, { signal }) => fetch("/api/adapt", { method: "POST", body: JSON.stringify(request), signal }).then((r) => r.json()),
+const catalog = defineCatalog({ panelIds, panels, goalIds, goals, actionIds, actions, goalPanelAffinity });
+const store = createAdaptiveWorkspace({
+  catalog,
+  // Your transport returns an AdaptiveResponse with typed judgments.
+  send: postAdapt,
+  words: { itemWords: { ticket: "ticket" } },
 });
 
 store.track({ type: "item_open", panel: "tickets", detail: { itemKind: "ticket", itemId: "T-201" } });
 store.subscribe((state) => render(state.plan));
+store.setSettings({ layoutBehavior: "suggestions", density: "standard" });
 ```
+
+`createAdaptiveWorkspace` infers the IDs from the catalog and supplies the
+standard policy, usage weights, suggestions and link labels. Pass `linked`
+for your record joins. Density defaults to `standard`; `auto` opts into
+inferred density. Suggestions-only keeps the arrangement while updating
+assistance; explicit commands and panel controls still work. Settings stay
+in memory unless your app supplies a `persist` hook.
+
+Use `createAdaptiveStore` and `createPolicy` directly for a custom engine.
+The `send` boundary works with any model or a local rules-based answer.
 
 An app adds its own features to the loop through hooks and an `extend`
 function instead of a second loop. A full app built only from the

@@ -5,7 +5,7 @@
  * About, which reopens the welcome screen.
  */
 import clsx from "clsx";
-import { Info, ScanEye } from "lucide-react";
+import { Compass, Info, ScanEye } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useShallow } from "zustand/react/shallow";
 import { GOALS } from "../../shared/catalog.ts";
@@ -15,14 +15,15 @@ import { useEngine } from "../engine/store.ts";
 import { APP_BAR_ATTR } from "./domHooks.ts";
 import { FocusSettings } from "./FocusSettings.tsx";
 import { openWelcome } from "./Welcome.tsx";
+import { startGuide } from "./guideEvents.ts";
 
 type StatusView = { label: string; dot: string; pulse?: boolean };
 
 function statusView(status: EngineStatus, source: "jev" | "heuristic" | null): StatusView {
-  if (status === "thinking") return { label: "Thinking", dot: "bg-accent", pulse: true };
+  if (status === "thinking") return { label: "Updating", dot: "bg-accent", pulse: true };
   if (status === "error") return { label: "Error", dot: "bg-bad" };
-  if (status === "offline" || source === "heuristic") return { label: "Offline with heuristic", dot: "bg-warn" };
-  if (source === "jev") return { label: "Live with Jev", dot: "bg-good" };
+  if (status === "offline" || source === "heuristic") return { label: "Demo rules", dot: "bg-warn" };
+  if (source === "jev") return { label: "AI connected", dot: "bg-good" };
   // Before the first answer arrives.
   return { label: "Ready", dot: "bg-ink-3" };
 }
@@ -39,7 +40,7 @@ function Logo() {
 }
 
 export function Header() {
-  const { goal, status, source, model, latencyMs, lastError, adaptive, inspectorOpen, setSettings, setInspectorOpen } = useEngine(
+  const { goal, status, source, model, latencyMs, lastError, adaptive, behavior, inspectorOpen, setSettings, setInspectorOpen } = useEngine(
     useShallow((s) => ({
       goal: s.goal,
       status: s.status,
@@ -48,6 +49,7 @@ export function Header() {
       latencyMs: s.last?.meta.latencyMs ?? null,
       lastError: s.lastError,
       adaptive: s.settings.adaptive,
+      behavior: s.settings.layoutBehavior,
       inspectorOpen: s.inspectorOpen,
       setSettings: s.setSettings,
       setInspectorOpen: s.setInspectorOpen,
@@ -81,7 +83,7 @@ export function Header() {
           className="order-last flex h-7 w-full min-w-0 items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 text-xs md:order-none md:ml-2 md:w-auto md:max-w-sm"
           title={
             goal
-              ? `${source === "heuristic" ? "Goal guessed by the offline heuristic" : "Goal judged by Jev"}: ${goal.id}, ${Math.round(goal.confidence * 100)}% confident`
+              ? "Suggested from your recent activity. Open Inspector for the evidence."
               : undefined
           }
         >
@@ -97,7 +99,6 @@ export function Header() {
               {goalLabel}
             </motion.span>
           </AnimatePresence>
-          {known ? <span className="ml-auto shrink-0 text-2xs text-ink-3 tabular-nums md:ml-0">{Math.round(goal.confidence * 100)}%</span> : null}
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
@@ -113,7 +114,7 @@ export function Header() {
             aria-checked={adaptive}
             onClick={() => setSettings({ adaptive: !adaptive })}
             className="flex h-8 items-center gap-2 rounded-lg px-2 text-xs font-medium text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
-            title={adaptive ? "The layout adapts to how you work" : "Fixed layout. Activity is still logged."}
+            title={!adaptive ? "Fixed layout. Activity is still logged." : behavior === "suggestions" ? "Suggestions update; your layout stays in place. Change behavior in Focus." : "The layout adapts to how you work"}
           >
             Adaptive
             <span className={clsx("relative h-5 w-9 shrink-0 rounded-full transition-colors", adaptive ? "bg-accent" : "bg-line-strong")}>
@@ -127,6 +128,11 @@ export function Header() {
           </button>
 
           <FocusSettings />
+
+          <button type="button" data-start-guide onClick={startGuide} className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs font-medium text-accent-text hover:bg-accent-soft">
+            <Compass className="size-4" aria-hidden />
+            Guide me
+          </button>
 
           <button
             type="button"

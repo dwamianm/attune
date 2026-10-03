@@ -6,8 +6,8 @@ title: The layout policy
 
 The policy turns one round of judgments into a layout plan. It is code: the
 same judgments always give the same plan, and every number below is a
-constant in `@attuneui/core`. Bind it to your app once with
-`createPolicy`.
+constant in `@attuneui/core`. `createAdaptiveWorkspace` supplies this policy
+for you. To customize it, bind it to your app with `createPolicy`.
 
 ```ts
 const POLICY = createPolicy({
@@ -73,10 +73,19 @@ place in front.
 ## Density
 
 The density (`guided`, `standard`, or `dense`) sets how many panels the
-canvas holds: 5, 7, or 9 (`DENSITY_CAPS`). It follows the model's
-expertise score, only when the model is sure (0.6), only after 5 events,
-and only when two rounds in a row agree, so one slow stretch does not
-shrink the canvas mid-task.
+canvas holds: 5, 7, or 9 (`DENSITY_CAPS`). A user's explicit `settings.density`
+preference takes priority. The demo and `createAdaptiveWorkspace` start at
+`"standard"`.
+
+When density is `"auto"` (or omitted in the advanced store), it follows the
+model's expertise score, only when the model is sure (0.6), only after 5 events,
+and only when two rounds in a row agree. The score describes recent activity;
+it is not a validated assessment of someone's ability.
+
+With `settings.layoutBehavior: "suggestions"`, policy rounds update assistance
+while retaining the arrangement, including density. Manual controls and explicit
+commands still work. With `settings.adaptive: false`, the store uses its fixed
+layout.
 
 ## Help
 

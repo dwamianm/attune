@@ -226,6 +226,8 @@ const DENSITY_IGNORES: ReadonlySet<SignalType> = new Set<SignalType>(["panel_dwe
 export const DEFAULT_SETTINGS: EngineSettings = {
   adaptive: true,
   frozen: false,
+  layoutBehavior: "adaptive",
+  density: "standard",
   // The habit part (focus aid 3) is added on top of the other three, not blended with them.
   weights: { relevance: 0.5, usage: 0.25, goal: 0.25, habit: HABIT_WEIGHT },
   minChangeIntervalMs: 2_500,
@@ -290,6 +292,8 @@ export function loadPersisted(): { settings: EngineSettings; pinned: PanelId[]; 
       settings: {
         adaptive: typeof s.adaptive === "boolean" ? s.adaptive : DEFAULT_SETTINGS.adaptive,
         frozen: typeof s.frozen === "boolean" ? s.frozen : DEFAULT_SETTINGS.frozen,
+        layoutBehavior: s.layoutBehavior === "suggestions" ? "suggestions" : "adaptive",
+        density: s.density === "auto" || s.density === "guided" || s.density === "dense" ? s.density : "standard",
         weights: {
           relevance: num(w.relevance, DEFAULT_SETTINGS.weights.relevance),
           usage: num(w.usage, DEFAULT_SETTINGS.weights.usage),
@@ -1333,7 +1337,11 @@ function demoExtension(k: Kernel) {
     const first = s.prep?.stage !== "ready" || !s.prep.panels?.length;
     let plan = withPrepSuggestion(buildPrepPlan(s.plan, { anchor, order, relations, title: meeting.title }));
     if (first && plan.suggestions.some((x) => x.meetingNotes)) plan = { ...plan, decisions: [...plan.decisions, { kind: "suggest", text: `Suggested: ${PREP_NOTES_LABEL}` }] };
-    k.setPlanDirect(plan, s.settings.frozen ? { holdAll: true } : {});
+    // Prepare is an explicit layout request. A ranking that arrives later
+    // updates the advice, but respects a suggestions-only arrangement.
+    const keepLayout = !first && s.settings.layoutBehavior === "suggestions";
+    if (keepLayout) plan = { ...s.plan, suggestions: plan.suggestions, decisions: plan.decisions.filter((d) => d.kind === "suggest") };
+    k.setPlanDirect(plan, s.settings.frozen || keepLayout ? { holdAll: true } : {});
     const placed = get().plan;
     const on = new Set(placed.placements.map((p) => p.id));
     const shown: LinkSet["relations"] = {};

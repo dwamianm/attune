@@ -16,6 +16,7 @@ npm install @attuneui/core
 
 | Export | What it does |
 | --- | --- |
+| `createAdaptiveWorkspace(config)` | Start with a catalog and transport; supplies the standard policy, suggestions, usage weights and link labels. |
 | `createAdaptiveStore(config)` | The adaptive loop in a small store of its own: `getState`, `setState`, `subscribe`, and the actions. |
 | `createAdaptiveEngine(config, host)` | The same loop on a host's `get` and `set`, for example a zustand store's initializer. |
 | `AdaptiveSpec` | Your app's types in one place: extend it and narrow `panel`, `goal`, `action`, `kind`, and others. |
@@ -42,6 +43,20 @@ The actions:
 | `adaptNow()` | Ask the model now. |
 | `setPointer`, `setCanvasHold`, `setColumns`, `setFocused` | What the canvas reports. `useStoreCanvas` calls them for you. |
 | `dispose()` | Stop every timer and the request in flight. |
+
+## User controls
+
+`setSettings` accepts `layoutBehavior: "adaptive" | "suggestions"`.
+Suggestions-only keeps panel cells, sizes, membership and order while updating
+suggestions and help. Commands, manual panel controls, and viewport resizing
+still work. `adaptive: false` selects the fixed workspace and disables automatic
+assistance; `frozen: true` is the separate diagnostic pause.
+
+`density: "guided" | "standard" | "dense"` is a user preference that wins over
+inferred expertise, including after Undo and reset. `"auto"` opts into the
+existing automatic density rule. `createAdaptiveWorkspace` defaults to
+`"standard"`; the advanced factories preserve their automatic default when
+`density` is omitted. Settings are in memory unless you supply a persistence hook.
 
 ## The catalog and the vocabulary
 

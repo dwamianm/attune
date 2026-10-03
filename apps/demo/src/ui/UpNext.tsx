@@ -135,9 +135,10 @@ export function useUpNextEntry(): AssistEntry | null {
 
   if (finished) {
     const doneLine = finished.detail ? `${finished.title}: ${finished.detail}` : `${finished.title}.`;
-    const doneWhy = finished.source === "jev" && finished.probability !== undefined ? `Jev ${Math.round(finished.probability * 100)}%` : null;
+    const doneWhy = finished.source === "jev" ? "Suggested from your recent work" : null;
     const next = finished.next;
-    const nextLine = next ? `Next: ${next.text}${finished.nextWhy ? ` (${finished.nextWhy})` : ""}` : "";
+    const nextWhy = finished.nextSource === "jev" ? "Suggested from your recent work" : finished.nextWhy;
+    const nextLine = next ? `Next: ${next.text}${nextWhy ? ` (${nextWhy})` : ""}` : "";
     const full = (
       <div
         role="group"
@@ -163,14 +164,14 @@ export function useUpNextEntry(): AssistEntry | null {
           <>
             <span className="ml-1 shrink-0 text-2xs font-semibold text-accent-text">Next:</span>
             <span className="min-w-0 truncate font-medium">{next.text}</span>
-            {finished.nextWhy ? (
+            {nextWhy ? (
               <span
                 className={clsx(
                   "hidden shrink-0 rounded-full px-1.5 py-px text-2xs font-medium tabular-nums lg:inline",
                   finished.nextSource === "jev" ? "bg-accent/15 text-accent-text" : "bg-surface-3 text-ink-2",
                 )}
               >
-                {finished.nextWhy}
+                {nextWhy}
               </span>
             ) : null}
             <button
@@ -239,6 +240,7 @@ export function useUpNextEntry(): AssistEntry | null {
   }
 
   if (pick) {
+    const pickWhy = pick.source === "list" ? "Next in this list" : pick.source === "link" ? "Related to your current record" : "Suggested from your recent work";
     // The next step of a click names the record and what it is for: "INV-1042 to resend it".
     const pickText =
       pick.source === "link" ? `${recordShortName(pick.candidate.id, data)}${pick.step ? ` ${pick.step}` : ""}` : recordCardText(pick.candidate, data, now);
@@ -260,7 +262,7 @@ export function useUpNextEntry(): AssistEntry | null {
             pick.source === "list" ? "bg-surface-3 text-ink-2" : "bg-accent/15 text-accent-text",
           )}
         >
-          {pick.why}
+          {pickWhy}
         </span>
         <button
           type="button"
@@ -306,7 +308,7 @@ export function useUpNextEntry(): AssistEntry | null {
       icon: CornerDownRight,
       tone: "accent",
       text: `Up next: ${pickText}`,
-      detail: [pick.why, why].filter(Boolean).join(" · "),
+      detail: [pickWhy, why].filter(Boolean).join(" · "),
       tip: why ? `Up next: ${pickText}. ${why}` : `Up next: ${pickText}`,
       short: pickText,
       hotkey: "n",

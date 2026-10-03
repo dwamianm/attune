@@ -81,6 +81,8 @@ export interface EngineSettings {
   adaptive: boolean;
   /** On = keep asking Jev and show answers in the inspector, but do not move panels. */
   frozen: boolean;
+  layoutBehavior?: "adaptive" | "suggestions";
+  density?: "guided" | "standard" | "dense" | "auto";
   weights: PolicyWeights;
   /** Minimum milliseconds between two layout changes. */
   minChangeIntervalMs: number;

@@ -11,7 +11,8 @@ that proves it out lives in `apps/demo`.
 
 ```
 packages/
-  core/     @attuneui/core    Framework-free: createAdaptiveStore (the whole loop), the
+  core/     @attuneui/core    Framework-free: createAdaptiveWorkspace (standard defaults),
+                            createAdaptiveStore (the custom loop), the
                             catalog type and its check, the signal vocabulary, the
                             snapshot in words, the layout policy (createPolicy) and
                             its rules, the place step, the layout modes, the anchored
@@ -50,6 +51,11 @@ and pnpm 10.
 3. `pnpm dev` starts the demo's API server (http://localhost:8790) and Vite
    (http://localhost:5173).
 
+The full introduction explains the project. **Guide me** walks through an
+actual message → invoice → follow-up task, with explanations as you work.
+It can be skipped or replayed from the header. **Focus** offers full adaptation,
+suggestions only, a fixed workspace, and a saved density preference.
+
 Root scripts:
 
 | Script | What it does |
@@ -58,6 +64,7 @@ Root scripts:
 | `pnpm dev:playground` | Run the playground (API on 8791, web on 5174), next to the demo if you like |
 | `pnpm dev:docs` | Run the documentation site on http://localhost:5175 |
 | `pnpm test` | Every package's and app's unit tests in one vitest run |
+| `pnpm test:browser` | Browser interaction tests on desktop, phone, and reduced-motion profiles |
 | `pnpm typecheck` | `tsc --noEmit` in every package and app |
 | `pnpm build` | Every package and app that has a build: the four packages, the demo and playground web apps, and the docs site |
 | `pnpm build:packages` | Only the four library packages |
@@ -67,6 +74,17 @@ Root scripts:
 
 To work on one package: `pnpm --filter @attuneui/core test`, or `cd` into it
 and run `pnpm test` or `pnpm typecheck`.
+
+Browser tests use a separate local server with model keys disabled. Install
+Playwright's Chromium with `pnpm exec playwright install chromium`, then run
+`pnpm test:browser`. To use installed Chrome, set `PLAYWRIGHT_CHANNEL=chrome`.
+See [the browser suite](tests/browser/workspace.spec.ts) for the interactions
+covered. Type-check it with
+`pnpm --filter @attuneui/demo exec tsc --noEmit -p ../../tests/browser/tsconfig.json`.
+
+A [user-trial protocol](docs/usability-study.md) compares fixed, rule-driven,
+and model-driven behavior on the same workflow. Model evaluation and passing
+software tests do not establish a productivity benefit.
 
 ## Working on the library
 

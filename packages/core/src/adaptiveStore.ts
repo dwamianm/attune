@@ -177,6 +177,10 @@ export interface AdaptiveSettings {
   adaptive: boolean;
   /** On: nothing moves automatically; manual edits still apply. */
   frozen: boolean;
+  /** Suggestions keeps the current arrangement; explicit commands and panel controls still work. */
+  layoutBehavior?: "adaptive" | "suggestions";
+  /** A chosen density wins over inferred expertise. Omitted or "auto" preserves the automatic rule. */
+  density?: Density | "auto";
   weights: BlendWeights;
   minChangeIntervalMs: number;
 }
@@ -749,7 +753,11 @@ export function createAdaptiveEngine<Sp extends AdaptiveSpec>(config: AdaptiveSt
    */
   function place(next: Plan, opts: Opts = {}): { plan: Plan; heldMove: P | null } {
     const s = get();
-    const gather = h.gather;
+    // A user preference also applies to manual edits, Undo and fixed layouts.
+    if (s.settings.density && s.settings.density !== "auto") next = { ...next, density: s.settings.density };
+    // Gathering linked panels is automatic movement, even when the policy
+    // returns the same placements. Suggestions-only must disable it too.
+    const gather = s.settings.layoutBehavior === "suggestions" ? undefined : h.gather;
     return placePlan({
       ...opts,
       current: s.plan,
@@ -955,7 +963,10 @@ export function createAdaptiveEngine<Sp extends AdaptiveSpec>(config: AdaptiveSt
   function commit(raw: Plan, opts: { force?: boolean; skipQuiet?: boolean; leaveHeld?: P | null } = {}): "applied" | "quiet" | "held" {
     const s = get();
     // Commands skip pointer holds: the user asked, and the hero goes to the front.
-    const { plan: next, heldMove } = place(raw, { pointerHolds: !opts.force });
+    const { plan: next, heldMove } = place(raw, {
+      pointerHolds: !opts.force,
+      ...(s.settings.layoutBehavior === "suggestions" && !opts.force ? { holdAll: true } : {}),
+    });
     const holds = opts.force ? { move: null, leave: null } : { move: heldMove, leave: opts.leaveHeld ?? null };
     if (policy.planSignature(next) === policy.planSignature(s.plan)) {
       // Frequent local re-plans (scroll, dwell) skip no-op updates to avoid needless renders.
@@ -1087,6 +1098,7 @@ export function createAdaptiveEngine<Sp extends AdaptiveSpec>(config: AdaptiveSt
       focusedPanel: s.focusedPanel,
       recentModes,
       recentDensities,
+      ...(s.settings.density && s.settings.density !== "auto" ? { density: s.settings.density } : {}),
       ...(avoid ? { avoid } : {}),
       ...(anchor && linked ? { anchor, linked } : anchor ? { anchor } : {}),
       ...(held ? { linkHold: held } : {}),
@@ -1108,6 +1120,18 @@ export function createAdaptiveEngine<Sp extends AdaptiveSpec>(config: AdaptiveSt
       plan = policy.applyPromotion({ plan, previous: s.plan, panel: hold.panel, pinned: s.pinned, bigger: s.bigger, ...(held ? { linkHold: held } : {}), ...(front ? { front } : {}) });
       const offered = hold.suggestion;
       if (offered) plan = addSuggestion(plan, offered, { announce: !s.plan.suggestions.some((x) => sameSuggestion(x, offered)) });
+    }
+    if (s.settings.layoutBehavior === "suggestions") {
+      // Keep the exact cells, membership, sizes and order. Only assistance
+      // updates; the command and manual-edit paths can still change layout.
+      plan = {
+        ...s.plan,
+        suggestions: plan.suggestions,
+        help: plan.help,
+        basedOnVersion: plan.basedOnVersion,
+        decisions: plan.decisions.filter((d) => d.kind === "suggest" || d.kind === "help"),
+      };
+      leaveHeld = null;
     }
     return { plan, leaveHeld };
   }
@@ -1176,9 +1200,10 @@ export function createAdaptiveEngine<Sp extends AdaptiveSpec>(config: AdaptiveSt
     };
     const inPlace: Opts = userResized ? { userResized } : { holdAll: true };
     const toFront: Opts = { reflow: true, toFront: panel };
-    if (s.settings.frozen && s.settings.adaptive) {
-      // Frozen: apply the edit without moving anything else.
-      setPlanDirect(edited(s.plan), inPlace);
+    if ((s.settings.frozen || s.settings.layoutBehavior === "suggestions") && s.settings.adaptive) {
+      // Apply only the user's edit; a resize can move cards that need room.
+      const requestedFront = !s.settings.frozen && front;
+      setPlanDirect(requestedFront ? edited(s.plan, { front: requestedFront }) : edited(s.plan), requestedFront ? toFront : inPlace);
       return;
     }
     // An open comes from the dock and appends at the end, so nothing slides under the pointer.
@@ -1586,10 +1611,10 @@ export function createAdaptiveEngine<Sp extends AdaptiveSpec>(config: AdaptiveSt
   }
 
   function firstPlan(s: State): Plan {
-    if (h.initialPlan) return h.initialPlan(s);
-    const base = policy.traditionalPlan({ pinned: s.pinned, bigger: s.bigger, front: h.front?.(s) });
+    const base = h.initialPlan ? h.initialPlan(s) : policy.traditionalPlan({ pinned: s.pinned, bigger: s.bigger, front: h.front?.(s) });
+    const plan = s.settings.density && s.settings.density !== "auto" ? { ...base, density: s.settings.density } : base;
     // With Adaptive on, the first plan has its cells at once, so the canvas never shows a plan without them.
-    return s.settings.adaptive ? withGrid(base, s.columns) : base;
+    return !h.initialPlan && s.settings.adaptive ? withGrid(plan, s.columns) : plan;
   }
 
   // ----- the kernel and the extension ---------------------------------------------
@@ -1763,12 +1788,16 @@ export function createAdaptiveEngine<Sp extends AdaptiveSpec>(config: AdaptiveSt
       persistState(get());
       h.settingsSet?.(prev, settings);
       // The anchor belongs to the adaptive layout: switching it off, or freezing, releases it.
-      if (prev.adaptive !== settings.adaptive || (!prev.frozen && settings.frozen)) {
+      if (prev.adaptive !== settings.adaptive || (!prev.frozen && settings.frozen) || prev.density !== settings.density) {
         releaseAnchor();
         pointerHold = null;
         clearPointerTimer();
       }
       h.settingsReleased?.(prev, settings);
+      if (prev.layoutBehavior !== settings.layoutBehavior) {
+        clearHeld();
+        commandHold = null;
+      }
       if (prev.adaptive !== settings.adaptive) {
         commandHold = null;
         undone = null;
@@ -1779,6 +1808,13 @@ export function createAdaptiveEngine<Sp extends AdaptiveSpec>(config: AdaptiveSt
       } else {
         h.settingsOther?.(prev, settings);
       }
+      if (prev.density !== settings.density) {
+        if (settings.density && settings.density !== "auto") {
+          setK({ plan: { ...get().plan, density: settings.density } });
+        }
+        replanLocal();
+      }
+      if (prev.layoutBehavior === "suggestions" && settings.layoutBehavior !== "suggestions") replanLocal();
       // Undo must not bring back a layout from before the switch (an adaptive
       // plan while Adaptive is off, or the reverse).
       if (prev.adaptive !== settings.adaptive || prev.frozen !== settings.frozen) setK({ previousPlan: null });

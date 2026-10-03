@@ -1,19 +1,16 @@
 /**
  * Welcome screen shown on a visitor's first load: who built Attune, why it
  * exists (an AI-native interface instead of pages and menus), the rules the
- * adaptive layout follows, and a short tour. "Show it to me" closes it.
+ * adaptive layout follows, and a short tour. Explore closes it; Guide me
+ * continues with a walkthrough of the real workspace.
  *
  * Decisions:
  * - Shown once per browser. Closing it stores WELCOME_KEY in localStorage.
  *   `?welcome=1` in the URL shows it again; `?welcome=0` hides it. The
  *   header's About button reopens it any time (openWelcome), and closing it
  *   then puts focus back on that button.
- * - A first-time visitor reads to the end before they can continue: "Show it
- *   to me" stays disabled (aria-disabled, so it keeps focus and its hint) and
- *   Escape does nothing until the content has been scrolled to within
- *   READ_END_SLACK_PX of the bottom. Content that fits without scrolling
- *   counts as read. Reopening from About after that is never locked.
- *   `?welcome=1` shows the first-visit (locked) version, for previewing it.
+ * - The full introduction stays available. "Guide me" starts a hands-on
+ *   walkthrough, and "Explore on my own" and Escape always open the app.
  * - A progress bar on the dialog's top edge and a "keep reading" chip over
  *   the bottom fade show how much is left. The chip scrolls one screen.
  * - Automated browsers (navigator.webdriver: Playwright, agent-browser) skip
@@ -24,8 +21,7 @@
  *   the pointer, and screen readers stay in the dialog.
  * - The app's one-key shortcuts (".", "n", "b", Escape, Cmd+K) listen on
  *   window. While open, a capture-phase listener keeps every keydown from
- *   reaching them; Escape closes the dialog the same way the button does
- *   (once it is unlocked).
+ *   reaching them; Escape closes the dialog the same way Explore does.
  * - The product was renamed from Floouid to Attune. The `floouid:` storage and
  *   event keys keep the old prefix on purpose, so saved settings and the
  *   "seen" flag survive the rename.
@@ -53,6 +49,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } f
 import { createPortal } from "react-dom";
 import { useLatest } from "@attuneui/react";
 import { MOD_K } from "./hooks.ts";
+import { startGuide } from "./guideEvents.ts";
 
 /** localStorage key set once the visitor closes the welcome screen. */
 export const WELCOME_KEY = "floouid:welcome-seen";
@@ -155,9 +152,7 @@ const FEATURES: { title: string; body: string }[] = [
   { title: "Help when stuck", body: "Offers a tip, or brings in a guide, when you seem lost." },
 ];
 
-// Each rule is stated as what Attune actually does today. A rule against
-// showing confidence scores is left out on purpose: the header and Up next
-// still show Jev's percentages.
+// Each rule describes the current prototype; agent execution is future work.
 const RULES: { icon: LucideIcon; title: string; body: string }[] = [
   {
     icon: Funnel,
@@ -176,8 +171,8 @@ const RULES: { icon: LucideIcon; title: string; body: string }[] = [
   },
   {
     icon: Hand,
-    title: "When unsure, it does nothing.",
-    body: "If Jev is not confident, the layout and suggestions stay as they are.",
+    title: "Changes need enough evidence.",
+    body: "Confidence thresholds and repeated judgments hold back uncertain changes. An unclear command asks you to choose before moving your work.",
   },
   {
     icon: MessageCircleQuestionMark,
@@ -192,7 +187,7 @@ const RULES: { icon: LucideIcon; title: string; body: string }[] = [
   {
     icon: SlidersHorizontal,
     title: "You stay in charge.",
-    body: "Pin, dock, or make a panel bigger, and your choice wins. Freeze the layout or switch Adaptive off at any time.",
+    body: "Pin, dock, or make a panel bigger, and your choice wins. Focus lets you choose full adaptation, suggestions only, a fixed workspace, and your preferred density.",
   },
   {
     icon: Compass,
@@ -222,7 +217,7 @@ const TOUR: ReactNode[] = [
 const GOOD_TO_KNOW: string[] = [
   'All data is invented. "Fernhill Studio" is a fictional six-person design studio.',
   "Actions change demo data in memory only. Nothing is really sent, paid, or emailed, and a reload resets it.",
-  'The dot in the header shows who is answering: "Live with Jev", or "Offline with heuristic" when no API key is set.',
+  'The header says "AI connected" when the model is answering, or "Demo rules" when no API key is set. The Inspector shows the full details.',
   "The goal is to give attention back: less hunting for things, not more time in the app. The Inspector's Metrics tab counts navigation per 10 actions.",
   "It is a prototype, so expect rough edges.",
 ];
@@ -346,22 +341,16 @@ function OutLink({ href, children }: { href: string; children: ReactNode }) {
 
 export function Welcome() {
   const [open, setOpen] = useState(shouldShowOnLoad);
-  // Locked until a first-time visitor has scrolled to the end.
-  const [locked, setLocked] = useState(() => welcomeParam() === "1" || !hasSeen());
+  // Reading progress only; both ways into the app are always available.
   const [atEnd, setAtEnd] = useState(false);
-  // Said once to screen readers when reading to the end unlocks the button.
-  const [unlockNote, setUnlockNote] = useState("");
-  const lockedRef = useLatest(locked);
   const reduceMotion = useReducedMotion() ?? false;
   const titleRef = useRef<HTMLHeadingElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const leadId = useId();
-  const hintId = useId();
 
   const close = () => {
-    if (locked) return;
     rememberSeen();
     setOpen(false);
   };
@@ -372,9 +361,7 @@ export function Welcome() {
   useEffect(() => {
     const onOpen = () => {
       openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      setLocked(!hasSeen());
       setAtEnd(false);
-      setUnlockNote("");
       setOpen(true);
     };
     window.addEventListener(WELCOME_OPEN_EVENT, onOpen);
@@ -424,10 +411,6 @@ export function Welcome() {
       barRef.current?.style.setProperty("--fl-read", String(progress));
       const end = max - el.scrollTop <= READ_END_SLACK_PX;
       setAtEnd(end);
-      if (end && lockedRef.current) {
-        setLocked(false);
-        setUnlockNote("You reached the end. Show it to me is ready.");
-      }
     };
     measure();
     el.addEventListener("scroll", measure, { passive: true });
@@ -502,9 +485,9 @@ export function Welcome() {
                           Welcome to Attune.
                         </h2>
                         <p id={leadId} className="max-w-xl text-base leading-relaxed text-ink-2 sm:text-lg">
-                          Attune is an AI-native, Adaptive UI library by Dwamian McLeish. Built for zero navigation, it
-                          shapes the interface around your work, bringing what you need into view as you need it. And
-                          when an AI agent acts on your behalf, its actions and progress stay visible.
+                          Attune is an adaptive UI library by Dwamian McLeish. It brings the records and tools for your
+                          current task into one workspace, helping you spend less attention finding things and
+                          rebuilding context. Read the idea below, or try it with a guided walkthrough.
                         </p>
                         <div className="flex flex-wrap gap-2">
                           <OutLink href={GITHUB_URL}>
@@ -586,14 +569,14 @@ export function Welcome() {
                           <div className="rounded-card border border-link/30 bg-link-soft p-4 text-sm leading-relaxed text-ink sm:p-5">
                             <p className="flex items-center gap-1.5 font-semibold">
                               <Eye className="size-4 text-link-text" aria-hidden />
-                              AI-agent-aware
+                              Where this could go
                             </p>
                             <p className="mt-1 text-ink-2">
-                              When an AI agent acts on your behalf, you should see the work being done, not trust a
-                              black box. Attune is designed so an agent works in the open, on the same screen you use:
-                              each step shows as it happens, says why, and can be undone, and anything hard to undo
-                              still waits for you. In this demo the agent is Jev arranging your workspace. Every change
-                              it makes is on screen and explained, and the Inspector shows exactly what Jev was asked.
+                              The longer-term aim is to make an agent’s work visible in the same workspace: its
+                              progress, proposed actions, and points that need your input. Today this prototype
+                              demonstrates adaptive layout and suggested next steps. Actions update sample data only;
+                              it does not run delegated work or send messages. The Inspector explains the model’s
+                              judgments and the layout decisions code makes from them.
                             </p>
                           </div>
                         </div>
@@ -691,7 +674,7 @@ export function Welcome() {
                         >
                           <ChevronDown className="size-4 text-accent-text" />
                         </motion.span>
-                        {locked ? "Scroll to the end to continue" : "Scroll for more"}
+                        Read more about the idea
                       </button>
                     </motion.div>
                   )}
@@ -711,30 +694,23 @@ export function Welcome() {
                   </a>
                 </p>
                 <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
-                  {locked ? (
-                    <p id={hintId} className="text-center text-xs text-ink-3 sm:text-right">
-                      Read to the end to continue
-                    </p>
-                  ) : null}
                   <button
                     type="button"
                     onClick={close}
-                    aria-disabled={locked}
-                    aria-describedby={locked ? hintId : undefined}
-                    className={clsx(
-                      "inline-flex h-11 items-center justify-center gap-2 rounded-xl px-5 text-[15px] font-semibold transition-colors",
-                      locked
-                        ? "cursor-not-allowed bg-surface-3 text-ink-3"
-                        : "bg-accent text-accent-fg shadow-card hover:bg-accent-hover",
-                    )}
+                    className="inline-flex h-11 items-center justify-center rounded-xl px-4 text-sm font-medium text-ink-2 hover:bg-surface-2"
                   >
-                    Show it to me
+                    Explore on my own
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { close(); requestAnimationFrame(startGuide); }}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-accent px-5 text-[15px] font-semibold text-accent-fg shadow-card hover:bg-accent-hover"
+                  >
+                    <Compass className="size-4" aria-hidden />
+                    Guide me
                     <ArrowRight className="size-4" aria-hidden />
                   </button>
                 </div>
-                <p className="sr-only" aria-live="polite">
-                  {unlockNote}
-                </p>
               </div>
             </motion.div>
           </motion.div>

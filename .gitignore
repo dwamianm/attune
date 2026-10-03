@@ -6,3 +6,5 @@ dist
 eval-results
 *.log
 .deploy
+test-results/
+playwright-report/

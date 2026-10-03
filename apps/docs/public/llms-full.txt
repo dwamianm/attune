@@ -16,7 +16,7 @@
 
 | Package | Where it runs | What it gives |
 | --- | --- | --- |
-| `@attuneui/core` | Browser and server | `defineCatalog`, `createPolicy`, `createAdaptiveStore`, the snapshot, the layout policy, the grid, and `neutralJudgments`. No DOM, no React. |
+| `@attuneui/core` | Browser and server | `defineCatalog`, `createAdaptiveWorkspace`, `createPolicy`, `createAdaptiveStore`, the snapshot, the layout policy, the grid, and `neutralJudgments`. No DOM, no React. |
 | `@attuneui/react` | Browser | `AdaptiveCanvas`, `PanelCard`, `Dock`, `ChangeLine`, `useStoreCanvas`, `useAdaptive`. Peers: `react`, `motion`. |
 | `@attuneui/jev` | Server only | `buildRound`, `readRound`, `askJev`, `createRealtimeJevClient`. Peer: `@typesafe-ai/sdk` 0.6.0. |
 | `@attuneui/server` | Server only | `checkRequest`, `createRateLimiter`, `parseAdaptRequest`. |
@@ -83,76 +83,40 @@ Panel fields: `id`, `title`, `description` (sent to the model), `icon` (a name y
 
 ## Step 3: the policy and the store (browser)
 
-`createPolicy` binds the layout policy to the catalog once. `createAdaptiveStore` is the adaptive loop: it keeps the event log, asks your server after a short pause, turns the answer into a layout plan, and holds the panel the user works in still. Type it with one `AdaptiveSpec`.
+`createAdaptiveWorkspace` supplies the standard policy and infers IDs from the catalog. No policy factory or `AdaptiveSpec` is required for a basic app. Use `createAdaptiveStore` and `createPolicy` directly when extending the engine.
 
 ```ts
 // src/engine.ts
-import {
-  basicRelation,
-  basicSuggestions,
-  createAdaptiveStore,
-  createPolicy,
-  eventWeight,
-  panelUsage,
-  type AdaptiveRequest,
-  type AdaptiveResponse,
-  type AdaptiveSpec,
-  type AnchorRef,
-  type CoreCommandJudgments,
-  type CoreJudgments,
-  type CoreSuggestion,
-  type PolicyInput,
-  type RelatedRecord,
-} from "@attuneui/core";
+import { createAdaptiveWorkspace, type AdaptiveRequest, type AdaptiveResponse, type JudgmentsWithCommand, type AnchorRef, type RelatedRecord } from "@attuneui/core";
 import { CATALOG, type ActionId, type GoalId, type PanelId, type RecordKind } from "./catalog";
 
-export type Judgments = CoreJudgments<PanelId, GoalId, ActionId> & { command?: CoreCommandJudgments<PanelId, ActionId> };
-type Suggestion = CoreSuggestion<ActionId>;
-type Input = PolicyInput<PanelId, GoalId, ActionId, Suggestion, RecordKind>;
+export type Judgments = JudgmentsWithCommand<PanelId, GoalId, ActionId>;
 
-export const POLICY = createPolicy<PanelId, GoalId, ActionId, Suggestion, RecordKind, { next: Partial<Record<PanelId, number>> }, Input, undefined>({
-  catalog: CATALOG,
-  usage: (events, now) => panelUsage(events, now, { panelIds: CATALOG.panelIds, weight: (e) => eventWeight(e) }),
-  suggest: (input) => basicSuggestions(CATALOG, input.judgments),
-  relationFor: (anchor, panel, records) => basicRelation(anchor, panel, records, CATALOG.panels),
-  modelName: "Jev",
-});
-
-export interface DeskSpec extends AdaptiveSpec {
-  panel: PanelId;
-  goal: GoalId;
-  action: ActionId;
-  kind: RecordKind;
-  judgments: Judgments;
-  policyExtra: undefined;
-}
-
-/** Records in other panels that belong to the record the user opened. Replace with your own data join. */
 function linkedRecords(anchor: AnchorRef<PanelId, RecordKind>): Partial<Record<PanelId, RelatedRecord<RecordKind>[]>> {
   if (!anchor.client || anchor.panel === "customers") return {};
   return { customers: [{ itemKind: "customer", itemId: anchor.client, label: anchor.client }] };
 }
 
-async function postAdapt(request: AdaptiveRequest, opts: { signal: AbortSignal }): Promise<AdaptiveResponse<Judgments>> {
-  const res = await fetch("/api/adapt", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(request), signal: opts.signal });
+async function postAdapt(request: AdaptiveRequest, { signal }: { signal: AbortSignal }): Promise<AdaptiveResponse<Judgments>> {
+  const res = await fetch("/api/adapt", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(request), signal });
   if (!res.ok) throw new Error(`The server answered ${res.status}`);
-  return (await res.json()) as AdaptiveResponse<Judgments>;
+  return res.json();
 }
 
-export const store = createAdaptiveStore<DeskSpec>({
+export const store = createAdaptiveWorkspace({
   catalog: CATALOG,
-  policy: POLICY,
-  words: { panels: CATALOG.panels, itemWords: { ticket: "ticket", customer: "customer", article: "help article", macro: "saved reply" } },
   send: postAdapt,
-  linked: (anchor) => linkedRecords(anchor),
-  // A short name for the link tags: a ticket's id, else the client.
-  anchorLabel: (ref) => (ref.itemKind === "ticket" ? ref.itemId : ref.client),
+  words: { itemWords: { ticket: "ticket", customer: "customer", article: "help article", macro: "saved reply" } },
+  linked: linkedRecords,
+  anchorLabel: (ref) => ref.itemKind === "ticket" ? ref.itemId : ref.client,
 });
-
 export type DeskStore = typeof store;
 ```
 
-`send` must pass `signal` to `fetch`: the store aborts a request that a newer one replaces.
+`send` must forward `signal` to fetch. The library cancels requests replaced by newer work.
+`settings.layoutBehavior: "suggestions"` keeps panel placement while suggestions update; `"adaptive"` allows automatic layout. Commands and manual panel controls work in both. `settings.density` accepts `"guided"`, `"standard"`, `"dense"`, or `"auto"`. The starter defaults to `"standard"`. Persist settings with the `persist` hook and restore through `settings` if needed.
+
+The canvas can occupy one region of an existing page. It does not require replacing the application's navigation.
 
 ## Step 4: report what the user does
 
