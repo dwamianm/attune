@@ -7,9 +7,9 @@
   "scripts": {
     "dev": "next dev --port 5175",
     "build": "next build",
-    "postbuild": "pagefind --site .next/server/app --output-path public/_pagefind",
-    "start": "next start --port 5175",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "postbuild": "pagefind --site .next/server/app --output-path out/_pagefind",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "deploy:aws": "bash deploy/deploy.sh"
   },
   "dependencies": {
     "next": "^16.3.8",

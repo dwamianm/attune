@@ -63,6 +63,7 @@ Root scripts:
 | `pnpm build:packages` | Only the four library packages |
 | `pnpm eval` | The demo's live Jev eval (needs the key) |
 | `pnpm deploy:aws` | Publish the demo to https://attuneui.com (see apps/demo/README.md) |
+| `pnpm deploy:docs` | Publish the docs to https://attuneui.dev (see apps/docs/README.md) |
 
 To work on one package: `pnpm --filter @attuneui/core test`, or `cd` into it
 and run `pnpm test` or `pnpm typecheck`.

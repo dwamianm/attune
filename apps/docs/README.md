@@ -9,9 +9,31 @@ The documentation site for the Attune packages, built with
 2. `pnpm dev:docs` at the root (or `pnpm dev` here) starts it on
    http://localhost:5175.
 
-`pnpm build` here builds the static pages and then the search index
-(Pagefind, into `public/_pagefind`, which git ignores). `pnpm start` serves
-the build. Search works only on a build, not in `pnpm dev`.
+`pnpm build` here builds the site as static files into `out/` (a Next.js
+static export, with every page as a folder with an `index.html`) and then
+the search index (Pagefind, into `out/_pagefind`). Search works only on a
+build, not in `pnpm dev`. To look at a build, serve `out/` with any static
+file server, for example `npx serve out`.
+
+## Deploy
+
+`pnpm deploy:docs` at the root (or `pnpm deploy:aws` here) publishes the
+site to https://attuneui.dev with `deploy/deploy.sh`, on the same AWS
+account (profile `junction`) as the demo:
+
+1. The certificate for attuneui.dev and www (`deploy/cert.yaml`), in
+   us-east-1, validated through the domain's Route 53 zone.
+2. The site (`deploy/template.yaml`), in us-west-1: a private S3 bucket
+   behind CloudFront, and the DNS records. A CloudFront Function sends www
+   to attuneui.dev and maps a page path to its `index.html`. A missing page
+   shows the site's own not-found page.
+3. The files, then a CloudFront invalidation. Hashed assets in
+   `_next/static` are cached for a year; everything else is checked on
+   each request.
+
+It is safe to run again: each step changes only what changed. The site is
+public, so there are no secrets. `deploy/destroy.sh` takes it down (it asks
+first).
 
 ## For AI assistants
 

@@ -13,6 +13,7 @@
     "test": "vitest run",
     "eval": "pnpm --filter @attuneui/demo eval",
     "deploy:aws": "pnpm --filter @attuneui/demo deploy:aws",
+    "deploy:docs": "pnpm --filter @attuneui/docs deploy:aws",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "pnpm build:packages && changeset publish"

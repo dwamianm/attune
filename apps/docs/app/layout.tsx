@@ -7,6 +7,7 @@ import { getPageMap } from "nextra/page-map";
 import "nextra-theme-docs/style.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://attuneui.dev"),
   title: { default: "Attune", template: "%s | Attune" },
   description: "Attune is an adaptive UI library: a canvas of panels that rearranges itself around what the user is doing.",
 };
